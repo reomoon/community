@@ -31,7 +31,7 @@ class Config:
             'enabled': True
         },
         'fmkorea': {
-            'name': 'fmkorea',
+            'name': '에펨코리아',
             'url': 'https://www.fmkorea.com',
             'enabled': True
         },
