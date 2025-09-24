@@ -1,0 +1,50 @@
+name: Daily Community Crawler
+
+on:
+  schedule:
+    # 매일 오전 9시 (UTC+0 기준이므로 한국시간 오후 6시)
+    - cron: '0 9 * * *'
+    # 매일 오후 9시 (UTC+0 기준이므로 한국시간 오전 6시)  
+    - cron: '0 21 * * *'
+  
+  # 수동 실행 가능
+  workflow_dispatch:
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run crawler
+      run: |
+        python crawl_only.py
+        
+    - name: Upload crawl results
+      uses: actions/upload-artifact@v3
+      with:
+        name: crawl-results-${{ github.run_number }}
+        path: crawl_results_*.json
+        retention-days: 30
+        
+    - name: Commit and push results (optional)
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add crawl_results_*.json
+        git commit -m "Auto crawl results - $(date)" || exit 0
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
