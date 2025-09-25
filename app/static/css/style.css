@@ -332,19 +332,22 @@ body {
         align-items: stretch;
     }
     .filters {
-        justify-content: center;
+        width: 100%;
         flex-wrap: nowrap !important;
-        gap: 8px;
+        justify-content: flex-start;
+        gap: 4px;
     }
     .filter-group {
-        min-width: auto;
+        min-width: 0;
+        max-width: none;
+        flex-shrink: 1;
     }
     .search-group {
         margin-left: 0;
         justify-content: center;
     }
     .search-group input {
-        width: 200px;
+        width: 160px;
     }
     .stats {
         flex-direction: column;
