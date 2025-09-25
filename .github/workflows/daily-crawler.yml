@@ -30,7 +30,9 @@ jobs:
         
     - name: Run crawler
       run: |
+        set PYTHONPATH=%cd%
         python dev/crawl_only.py
+      shell: cmd
         
     - name: Generate static HTML from crawled data
       run: |

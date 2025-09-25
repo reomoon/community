@@ -186,7 +186,7 @@ class CommunityAggregator {
         const siteNames = {
             'bobae': '보배드림',
             'ppomppu': '뽐뿌',
-            'fmkorea': 'fmkorea',
+            'fmkorea': '에펨코리아',
             'dcinside': '디시인사이드'
         };
         
