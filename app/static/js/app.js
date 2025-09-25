@@ -183,19 +183,17 @@ class CommunityAggregator {
         const card = document.createElement('div');
         card.className = 'post-card';
         
-        const siteNames = {
-            'bobae': '보배드림',
+        const siteShortNames = {
+            'bobae': '보배',
             'ppomppu': '뽐뿌',
-            'fmkorea': '에펨코리아',
-            'dcinside': '디시인사이드'
+            'fmkorea': '에펨',
+            'dcinside': '디시'
         };
-        
+
         card.innerHTML = `
-            <div class="post-header">
-                <span class="site-badge ${post.site}">${siteNames[post.site] || post.site}</span>
-            </div>
             <div class="post-title">
                 <a href="${post.url}" target="_blank" rel="noopener noreferrer">
+                    <span class="site-badge ${post.site}">${siteShortNames[post.site] || post.site.substring(0,2)}</span>
                     ${this.escapeHtml(post.title)}
                 </a>
             </div>
