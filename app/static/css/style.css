@@ -335,12 +335,21 @@ body {
         width: 100%;
         flex-wrap: nowrap !important;
         justify-content: flex-start;
-        gap: 4px;
+        gap: 2px;
     }
     .filter-group {
-        min-width: 0;
-        max-width: none;
+        min-width: 0 !important;
+        max-width: none !important;
         flex-shrink: 1;
+        gap: 2px;
+        padding: 0;
+    }
+    .filter-group select {
+        min-width: 0 !important;
+        max-width: 100px !important;
+        width: auto !important;
+        padding: 4px 6px !important;
+        font-size: 13px !important;
     }
     .search-group {
         margin-left: 0;
