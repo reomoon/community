@@ -324,34 +324,32 @@ body {
     .container {
         padding: 15px;
     }
-    
     .header h1 {
         font-size: 2em;
     }
-    
     .controls {
         flex-direction: column;
         align-items: stretch;
     }
-    
     .filters {
         justify-content: center;
+        flex-wrap: nowrap !important;
+        gap: 8px;
     }
-    
+    .filter-group {
+        min-width: auto;
+    }
     .search-group {
         margin-left: 0;
         justify-content: center;
     }
-    
     .search-group input {
         width: 200px;
     }
-    
     .stats {
         flex-direction: column;
         gap: 15px;
     }
-    
     .posts-container {
         grid-template-columns: 1fr;
     }
