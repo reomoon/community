@@ -29,8 +29,14 @@ jobs:
         pip install -r requirements.txt
         
     - name: Run crawler
+      env:
+        PYTHONPATH: .
       run: |
         python dev/crawl_only.py
+
+    - name: Debug Python Path
+      run: |
+        python -c "import sys; print(sys.path)"
         
     - name: Generate static HTML from crawled data
       run: |
