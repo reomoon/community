@@ -27,12 +27,20 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install playwright
+        playwright install chromium
         
     - name: Run crawler
       env:
         PYTHONPATH: .
       run: |
         python dev/crawl_only.py
+        
+    - name: Capture mobile screenshots
+      env:
+        PYTHONPATH: .
+      run: |
+        python capture_posts.py
 
     - name: Debug Python Path
       run: |
@@ -56,15 +64,19 @@ jobs:
                 
                 sites = {
                     'ppomppu': {'name': '뽐뿌', 'enabled': True},
-                    'fmkorea': {'name': 'fmkorea', 'enabled': True},
+                    'fmkorea': {'name': '에펨코리아', 'enabled': True},
                     'bobae': {'name': '보배드림', 'enabled': True},
                     'dcinside': {'name': '디시인사이드', 'enabled': True}
                 }
                 
+                # 한국시간으로 변경 (UTC+9)
+                from datetime import timezone, timedelta
+                kst = timezone(timedelta(hours=9))
+                
                 html = render_template('static.html', 
                                      posts=posts, 
                                      sites=sites,
-                                     last_updated=datetime.now().strftime('%Y-%m-%d %H:%M'))
+                                     last_updated=datetime.now(kst).strftime('%Y-%m-%d %H:%M KST'))
             
             with open('index.html', 'w', encoding='utf-8') as f:
                 f.write(html)
@@ -86,7 +98,7 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add .
-        git diff --staged --quiet || git commit -m "🔄 Auto update: $(date '+%Y-%m-%d %H:%M')"
+        git diff --staged --quiet || git commit -m "🔄 Auto update: $(date '+%Y-%m-%d %H:%M') - 크롤링 및 모바일 캡처 완료"
         git push
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

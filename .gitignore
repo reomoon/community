@@ -88,6 +88,9 @@ temp/
 # Output files
 output/
 
+# capture files
+capture/
+
 # Development directories (optional - uncomment if you don't want to track these)
 # dev/
 # analyze/
