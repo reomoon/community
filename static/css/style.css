@@ -249,6 +249,7 @@ body {
     display: flex;
     align-items: flex-start;
     gap: 8px;
+    line-height: 1.5;
 }
 
 .site-prefix {
