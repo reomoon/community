@@ -34,7 +34,7 @@ jobs:
       env:
         PYTHONPATH: .
       run: |
-        python dev/crawl_only.py || echo "크롤링 중 일부 오류 발생했지만 계속 진행"
+        python dev/crawl_only.py 2>&1 || echo "크롤링 중 일부 오류 발생했지만 계속 진행"
         
     - name: Capture mobile screenshots
       env:

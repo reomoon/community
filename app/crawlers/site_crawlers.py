@@ -138,10 +138,15 @@ class FmkoreaCrawler(BaseCrawler):
         super().__init__('fmkorea')
         self.base_url = 'https://www.fmkorea.com'
         
-        # 에펨코리아용 최소한의 헤더 설정 (430 오류 방지)
+        # 에펨코리아용 다양한 헤더 설정 (430 오류 방지)
         self.session.headers.clear()
         self.session.headers.update({
-            'User-Agent': 'curl/7.68.0'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ko-KR,ko;q=0.8,en-US;q=0.5,en;q=0.3',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1'
         })
         
         # 요청 간격을 더 늘리고 타임아웃 설정
@@ -153,17 +158,19 @@ class FmkoreaCrawler(BaseCrawler):
         """fmkorea 인기 게시물 크롤링"""
         posts = []
         
-        # 여러 URL 시도 (모바일 우선)
+        # 여러 URL 시도 (다양한 경로)
         urls_to_try = [
             "https://m.fmkorea.com/best2",   # 모바일 버전 우선
             "https://m.fmkorea.com/best",
-            "https://m.fmkorea.com/hotdeal",
             f"{self.base_url}/best2",
             f"{self.base_url}/best", 
-            f"{self.base_url}/hotdeal",
             f"{self.base_url}/index.php?mid=best2",
             f"{self.base_url}/index.php?mid=best",
-            f"{self.base_url}/index.php?mid=hotdeal"
+            "https://m.fmkorea.com/hotdeal",
+            f"{self.base_url}/hotdeal",
+            f"{self.base_url}/index.php?mid=hotdeal",
+            f"{self.base_url}/",  # 메인 페이지도 시도
+            "https://m.fmkorea.com/"
         ]
         
         for attempt, url in enumerate(urls_to_try, 1):
@@ -188,7 +195,11 @@ class FmkoreaCrawler(BaseCrawler):
                         
                         req = urllib.request.Request(
                             url,
-                            headers={'User-Agent': 'curl/7.68.0'}
+                            headers={
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                                'Accept': 'text/html,application/xhtml+xml',
+                                'Accept-Language': 'ko-KR,ko;q=0.8'
+                            }
                         )
                         
                         with urllib.request.urlopen(req, timeout=15) as response_raw:

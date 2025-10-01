@@ -77,6 +77,21 @@ class CommunityScreenshotCapture:
                     print(f"  ⚠️ 페이지 로딩 지연, 계속 진행: {post.site}")
                     # 타임아웃이어도 페이지가 부분적으로 로딩되었을 수 있으므로 계속 진행
             
+            # 페이지 인코딩 설정 (한글 깨짐 방지)
+            await page.evaluate("""
+                // 페이지 인코딩 UTF-8로 강제 설정
+                if (document.querySelector('meta[charset]')) {
+                    document.querySelector('meta[charset]').setAttribute('charset', 'UTF-8');
+                } else {
+                    var meta = document.createElement('meta');
+                    meta.setAttribute('charset', 'UTF-8');
+                    document.head.appendChild(meta);
+                }
+                
+                // 폰트 렌더링 개선
+                document.documentElement.style.fontFamily = 'Malgun Gothic, Apple Gothic, sans-serif';
+            """)
+            
             # 추가 로딩 대기
             await asyncio.sleep(2)
             
@@ -117,9 +132,23 @@ class CommunityScreenshotCapture:
             await self.scroll_to_load_content(page, site_config['scroll_delay'])
             print(f"  ✅ 스크롤 완료: {post.site}")
             
-            # 파일명 생성 (안전한 파일명으로 변경)
-            safe_title = "".join(c for c in post.title if c.isalnum() or c in (' ', '-', '_')).strip()[:50]
-            print(f"  📄 파일명 생성: {safe_title}")
+            # 파일명 생성 (한글 인코딩 안전 처리)
+            try:
+                # 한글을 영문으로 변환하거나 제거
+                import re
+                # 한글과 특수문자 제거, 영문/숫자만 남김
+                safe_title = re.sub(r'[^\w\s-]', '', post.title.encode('ascii', errors='ignore').decode('ascii'))
+                safe_title = re.sub(r'[-\s]+', '_', safe_title).strip('_')[:30]
+                
+                # 빈 문자열이면 기본값 사용
+                if not safe_title:
+                    safe_title = f"{post.site}_{post.id if hasattr(post, 'id') else 'post'}"
+                    
+                print(f"  📄 파일명 생성: {safe_title}")
+            except Exception as e:
+                # 인코딩 오류 시 기본 파일명 사용
+                safe_title = f"{post.site}_{datetime.now().strftime('%H%M%S')}"
+                print(f"  ⚠️ 파일명 인코딩 오류, 기본명 사용: {safe_title}")
             
             # 갤럭시 S25 사이즈로 분할 캡처
             print(f"  📸 캡처 시작: {post.site}")
@@ -366,7 +395,7 @@ class CommunityScreenshotCapture:
         posts_by_site = await self.get_top_posts()
         
         async with async_playwright() as playwright:
-            # Chromium 브라우저 실행 - 고품질 렌더링 옵션
+            # Chromium 브라우저 실행 - 한글 지원 + 고품질 렌더링 옵션
             browser = await playwright.chromium.launch(
                 headless=True,  # 백그라운드 실행
                 args=[
@@ -375,7 +404,11 @@ class CommunityScreenshotCapture:
                     '--high-dpi-support=1',  # 고DPI 지원
                     '--disable-web-security',  # 웹 보안 비활성화 (캡처 품질 향상)
                     '--font-render-hinting=none',  # 폰트 렌더링 최적화
-                    '--disable-gpu-sandbox'
+                    '--disable-gpu-sandbox',
+                    '--lang=ko-KR',  # 한국어 설정
+                    '--accept-lang=ko-KR,ko,en-US,en',  # 언어 우선순위
+                    '--force-device-scale-factor=1',  # 스케일링 문제 방지
+                    '--disable-font-subpixel-positioning'  # 폰트 렌더링 안정화
                 ]
             )
             
