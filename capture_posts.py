@@ -55,6 +55,8 @@ class CommunityScreenshotCapture:
     async def capture_post(self, browser, post, site_config):
         """단일 게시물 캡처 - 갤럭시 S25 사이즈로 분할 캡처"""
         try:
+            print(f"📱 캡처 시작: {post.site} - {post.title[:50]}...")
+            
             # 갤럭시 S25 화면 설정으로 새 페이지 생성 - 고해상도
             context = await browser.new_context(
                 viewport={'width': 412, 'height': 915},  # 갤럭시 S25 크기 (412x915)
@@ -64,26 +66,27 @@ class CommunityScreenshotCapture:
             
             page = await context.new_page()
             
-            print(f"📱 캡처 시작: {post.title[:50]}...")
+            print(f"  🌐 페이지 이동 중: {post.url}")
             
             # 페이지 이동
-            await page.goto(post.url, wait_until='networkidle', timeout=30000)
+            await page.goto(post.url, wait_until='domcontentloaded', timeout=30000)
+            print(f"  ✅ 페이지 로딩 완료: {post.site}")
             
-            # 페이지 로딩 대기
-            await asyncio.sleep(2)
-            
-            # 뽐뿌 모바일 팝업 처리
+            # 뽐뿌 모바일 팝업 처리 (즉시) - 이제 뽐뿌는 제외되므로 실행 안됨
             if site_config.get('has_mobile_popup', False):
                 await self.handle_ppomppu_mobile_popup(page)
-                
-            # 팝업 처리 후 추가 로딩 대기
+            
+            # 페이지 로딩 대기 (팝업 처리 후)
             await asyncio.sleep(1)
             
             # 주요 요소 로딩 대기 (타임아웃 단축)
+            print(f"  🔍 요소 대기 중: {site_config['wait_selectors']}")
             for selector in site_config['wait_selectors']:
                 try:
-                    await page.wait_for_selector(selector, timeout=3000)  # 5초 → 3초
-                except:
+                    await page.wait_for_selector(selector, timeout=3000)
+                    print(f"    ✅ 요소 발견: {selector}")
+                except Exception as e:
+                    print(f"    ⚠️ 요소 없음: {selector} - {str(e)[:50]}")
                     continue  # 일부 요소가 없어도 계속 진행
             
             # 고품질 렌더링을 위한 CSS 주입
@@ -103,21 +106,34 @@ class CommunityScreenshotCapture:
             """)
             
             # 댓글까지 스크롤하여 모든 컨텐츠 로드
+            print(f"  📜 페이지 스크롤 시작: {post.site}")
             await self.scroll_to_load_content(page, site_config['scroll_delay'])
+            print(f"  ✅ 스크롤 완료: {post.site}")
             
             # 파일명 생성 (안전한 파일명으로 변경)
             safe_title = "".join(c for c in post.title if c.isalnum() or c in (' ', '-', '_')).strip()[:50]
+            print(f"  📄 파일명 생성: {safe_title}")
             
             # 갤럭시 S25 사이즈로 분할 캡처
+            print(f"  📸 캡처 시작: {post.site}")
             captured_files = await self.capture_in_segments(page, post, safe_title)
+            print(f"  ✅ 캡처 완료: {post.site} - {len(captured_files) if captured_files else 0}개 파일")
             
             await context.close()
             return captured_files
             
         except Exception as e:
-            print(f"❌ 캡처 실패 - {post.title[:30]}: {str(e)}")
+            print(f"❌ 캡처 실패 - {post.site} - {post.title[:30]}")
+            print(f"    오류 상세: {str(e)}")
+            print(f"    URL: {post.url}")
+            import traceback
+            print(f"    스택 트레이스: {traceback.format_exc()}")
+            
             if 'context' in locals():
-                await context.close()
+                try:
+                    await context.close()
+                except:
+                    pass
             return None
     
     async def capture_in_segments(self, page, post, safe_title):
@@ -168,72 +184,117 @@ class CommunityScreenshotCapture:
             return []
     
     async def handle_ppomppu_mobile_popup(self, page):
-        """뽐뿌 사이트의 모바일 웹 팝업 처리"""
+        """뽐뿌 사이트의 모바일 웹 팝업 처리 - 강화 버전"""
         try:
-            print("  📱 뽐뿌 모바일 팝업 확인 중...")
+            print("  📱 뽐뿌 모바일 팝업 처리 시작...")
             
-            # 모바일 웹으로 보기 버튼 찾기 (다양한 셀렉터 시도)
+            # 1. 즉시 JavaScript로 팝업 제거 (선제 공격)
+            await page.evaluate("""
+                // 모든 팝업 관련 요소 즉시 제거
+                const removePopups = () => {
+                    const popupSelectors = [
+                        '.popup', '.modal', '.layer', '.overlay', '.dimmed',
+                        '[class*="popup"]', '[id*="popup"]', '[class*="modal"]', '[id*="modal"]',
+                        '.layer_popup', '.modal_popup', '.app_popup', '.mobile_popup'
+                    ];
+                    
+                    popupSelectors.forEach(selector => {
+                        document.querySelectorAll(selector).forEach(el => {
+                            if (el.offsetParent !== null) {
+                                el.style.display = 'none';
+                                el.remove();
+                            }
+                        });
+                    });
+                    
+                    // body 스타일 정상화
+                    document.body.style.overflow = 'auto';
+                    document.documentElement.style.overflow = 'auto';
+                    document.body.style.position = 'static';
+                };
+                
+                // 즉시 실행
+                removePopups();
+                
+                // 주기적으로 실행 (팝업이 지연 로딩될 수 있음)
+                setInterval(removePopups, 500);
+            """)
+            
+            # 2. 모바일 웹으로 보기 버튼 찾기 (확장된 셀렉터)
             mobile_button_selectors = [
-                'a[href*="mobile"]',  # 모바일 링크
-                '.mobile_btn',        # 모바일 버튼 클래스
-                'button:has-text("모바일")',  # 모바일 텍스트 포함 버튼
-                'a:has-text("모바일웹")',      # 모바일웹 텍스트 포함 링크
-                'a:has-text("불편해도")',      # 불편해도 텍스트 포함 링크
-                '.popup a',           # 팝업 내의 링크
-                '.modal a'            # 모달 내의 링크
+                'a[href*="mobile"]', 'a[href*="m.ppomppu"]',
+                '.mobile_btn', '.btn_mobile', 
+                'button:has-text("모바일")', 'a:has-text("모바일웹")', 
+                'a:has-text("모바일로")', 'a:has-text("모바일 보기")',
+                'a:has-text("불편해도")', 'button:has-text("불편해도")',
+                '.popup a', '.modal a', '.layer a',
+                '[onclick*="mobile"]', '[onclick*="m.ppomppu"]'
             ]
             
             for selector in mobile_button_selectors:
                 try:
-                    # 버튼이 존재하고 보이는지 확인
-                    element = await page.wait_for_selector(selector, timeout=3000)
-                    if element and await element.is_visible():
-                        print(f"  ✅ 모바일 버튼 발견: {selector}")
-                        await element.click()
-                        print("  🔘 모바일 웹으로 보기 버튼 클릭 완료")
-                        await asyncio.sleep(2)  # 페이지 로딩 대기
-                        break
-                except:
-                    continue
-            
-            # 팝업 닫기 버튼도 시도
-            close_selectors = [
-                '.close',
-                '.popup_close', 
-                '.modal_close',
-                '[class*="close"]',
-                'button:has-text("닫기")',
-                'a:has-text("닫기")'
-            ]
-            
-            for selector in close_selectors:
-                try:
                     element = await page.wait_for_selector(selector, timeout=1000)
                     if element and await element.is_visible():
+                        text = await element.text_content()
+                        print(f"  ✅ 모바일 버튼 발견: {selector} - '{text}'")
                         await element.click()
-                        print("  ❌ 팝업 닫기 버튼 클릭")
+                        print("  🔘 모바일 웹으로 보기 버튼 클릭 완료")
                         await asyncio.sleep(1)
                         break
                 except:
                     continue
             
-            # JavaScript로 강제 팝업 제거 (최후 수단)
+            # 3. 팝업 닫기 버튼 시도 (확장된 셀렉터)
+            close_selectors = [
+                '.close', '.btn_close', '.popup_close', '.modal_close', '.layer_close',
+                '[class*="close"]', '[id*="close"]',
+                'button:has-text("닫기")', 'a:has-text("닫기")', 'span:has-text("닫기")',
+                'button:has-text("×")', 'a:has-text("×")', 'span:has-text("×")',
+                'button:has-text("X")', 'a:has-text("X")', '.btn_x', '.close_x'
+            ]
+            
+            for selector in close_selectors:
+                try:
+                    element = await page.wait_for_selector(selector, timeout=500)
+                    if element and await element.is_visible():
+                        await element.click()
+                        print(f"  ❌ 팝업 닫기 버튼 클릭: {selector}")
+                        await asyncio.sleep(0.5)
+                        break
+                except:
+                    continue
+            
+            # 4. 최종 강제 팝업 제거 + ESC 키 시도
             await page.evaluate("""
-                // 모든 팝업 관련 요소 제거
-                const popupSelectors = ['.popup', '.modal', '.layer', '.overlay', '[class*="popup"]', '[id*="popup"]'];
-                popupSelectors.forEach(selector => {
-                    document.querySelectorAll(selector).forEach(el => {
-                        if (el.style.display !== 'none' && el.offsetParent !== null) {
-                            el.style.display = 'none';
-                            el.remove();
+                // 최종 팝업 제거
+                const finalRemovePopups = () => {
+                    // 모든 가능한 팝업 요소 제거
+                    const allElements = document.querySelectorAll('*');
+                    allElements.forEach(el => {
+                        const style = window.getComputedStyle(el);
+                        // z-index가 높거나 fixed/absolute 포지션인 요소 중 팝업 의심 요소 제거
+                        if ((style.position === 'fixed' || style.position === 'absolute') && 
+                            (parseInt(style.zIndex) > 100 || style.zIndex === 'auto')) {
+                            const rect = el.getBoundingClientRect();
+                            // 화면을 덮는 크기의 요소는 팝업일 가능성이 높음
+                            if (rect.width > window.innerWidth * 0.8 || rect.height > window.innerHeight * 0.8) {
+                                el.style.display = 'none';
+                                el.remove();
+                            }
                         }
                     });
-                });
+                    
+                    // body 속성 완전 정상화
+                    document.body.style.cssText = 'overflow: auto !important; position: static !important;';
+                    document.documentElement.style.cssText = 'overflow: auto !important;';
+                };
                 
-                // body 스타일 정상화 (팝업으로 인한 스크롤 방지 해제)
-                document.body.style.overflow = 'auto';
-                document.documentElement.style.overflow = 'auto';
+                finalRemovePopups();
             """)
+            
+            # ESC 키 눌러서 팝업 닫기 시도
+            await page.keyboard.press('Escape')
+            await asyncio.sleep(0.3)
                     
             print("  ✅ 뽐뿌 팝업 처리 완료")
             
@@ -272,7 +333,8 @@ class CommunityScreenshotCapture:
         posts_by_site = {}
         
         with app.app_context():
-            for site in ['bobae', 'dcinside', 'ppomppu', 'fmkorea']:
+            # 뽐뿌 제외하고 3개 사이트만 캡처
+            for site in ['bobae', 'dcinside', 'fmkorea']:
                 # 전체 게시물 중에서 랜덤 선택
                 all_posts = Post.query.filter(Post.site == site).all()
                 
@@ -322,15 +384,21 @@ class CommunityScreenshotCapture:
                     
                     for i, post in enumerate(posts, 1):
                         current_count += 1
-                        print(f"[{current_count}/{total_posts}] ", end="")
+                        print(f"\n[{current_count}/{total_posts}] {site_config['name']} 캡처 시작")
                         
-                        post_files = await self.capture_post(browser, post, site_config)
-                        if post_files:
-                            if isinstance(post_files, list):
-                                captured_files.extend(post_files)
-                                print(f"  📁 {len(post_files)}개 파일 생성")
+                        try:
+                            post_files = await self.capture_post(browser, post, site_config)
+                            if post_files:
+                                if isinstance(post_files, list):
+                                    captured_files.extend(post_files)
+                                    print(f"  ✅ {site_config['name']} 성공: {len(post_files)}개 파일 생성")
+                                else:
+                                    captured_files.append(post_files)
+                                    print(f"  ✅ {site_config['name']} 성공: 1개 파일 생성")
                             else:
-                                captured_files.append(post_files)
+                                print(f"  ❌ {site_config['name']} 실패: 파일 생성되지 않음")
+                        except Exception as e:
+                            print(f"  ❌ {site_config['name']} 예외 발생: {str(e)}")
                         
                         # 사이트 부하 방지를 위한 딜레이 (단축)
                         if i < len(posts):
