@@ -46,18 +46,27 @@ class CommunityScreenshotCapture:
             }
         }
     
-    async def capture_post(self, browser, post, site_config):
-        """단일 게시물 캡처 - 갤럭시 S25 사이즈로 분할 캡처"""
+    async def capture_post(self, browser, post, site_config, playwright_instance=None):
+        """단일 게시물 캡처 - 갤럭시 모바일 환경으로 캡처"""
         try:
             print(f"📱 캡처 시작: {post.site} - {post.title[:50]}...")
             
-            # 갤럭시 S25 화면 설정으로 새 페이지 생성 - 한글 폰트 최적화
+            # 갤럭시 S9+ 모바일 환경 시뮬레이션 (내장 디바이스 사용)
+            from playwright.async_api import async_playwright
+            
+            # 갤럭시 S9+ 디바이스 설정을 수동으로 정의
+            mobile_device = {
+                'viewport': {'width': 412, 'height': 846},
+                'device_scale_factor': 2.6,
+                'is_mobile': True,
+                'has_touch': True,
+                'user_agent': 'Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+            }
+            
             context = await browser.new_context(
-                viewport={'width': 412, 'height': 915},  # 갤럭시 S25 크기 (412x915)
-                device_scale_factor=2.0,  # 3배 → 2배로 줄여서 안정화
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                locale='ko-KR',  # 한국어 로케일 설정
-                timezone_id='Asia/Seoul',  # 한국 시간대
+                **mobile_device,  # 모바일 디바이스 설정 적용
+                locale='ko-KR',
+                timezone_id='Asia/Seoul',
                 extra_http_headers={
                     'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
                 }
@@ -424,21 +433,21 @@ class CommunityScreenshotCapture:
         # 게시물 데이터 가져오기
         posts_by_site = await self.get_top_posts()
         
-        async with async_playwright() as playwright:
-            # Chromium 브라우저 실행 - 한글 지원 + 고품질 렌더링 옵션
-            browser = await playwright.chromium.launch(
+        async with async_playwright() as p:
+            # Chromium 브라우저 실행 - 모바일 시뮬레이션 + 한글 지원
+            browser = await p.chromium.launch(
                 headless=True,  # 백그라운드 실행
                 args=[
                     '--no-sandbox', 
                     '--disable-dev-shm-usage',
-                    '--high-dpi-support=1',  # 고DPI 지원
-                    '--disable-web-security',  # 웹 보안 비활성화 (캡처 품질 향상)
-                    '--font-render-hinting=none',  # 폰트 렌더링 최적화
+                    '--high-dpi-support=1',
+                    '--disable-web-security',
+                    '--font-render-hinting=none',
                     '--disable-gpu-sandbox',
-                    '--lang=ko-KR',  # 한국어 설정
-                    '--accept-lang=ko-KR,ko,en-US,en',  # 언어 우선순위
-                    '--force-device-scale-factor=1',  # 스케일링 문제 방지
-                    '--disable-font-subpixel-positioning'  # 폰트 렌더링 안정화
+                    '--lang=ko-KR',
+                    '--accept-lang=ko-KR,ko,en-US,en',
+                    '--disable-font-subpixel-positioning',
+                    '--user-agent=Mozilla/5.0 (Linux; Android 14; SM-S926B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'  # 모바일 UA 강제
                 ]
             )
             
@@ -457,7 +466,7 @@ class CommunityScreenshotCapture:
                         print(f"\n[{current_count}/{total_posts}] {site_config['name']} 캡처 시작")
                         
                         try:
-                            post_files = await self.capture_post(browser, post, site_config)
+                            post_files = await self.capture_post(browser, post, site_config, p)
                             if post_files:
                                 if isinstance(post_files, list):
                                     captured_files.extend(post_files)

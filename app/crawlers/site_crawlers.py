@@ -158,19 +158,25 @@ class FmkoreaCrawler(BaseCrawler):
         """fmkorea 인기 게시물 크롤링"""
         posts = []
         
-        # 여러 URL 시도 (다양한 경로)
+        # GitHub Actions 환경에서는 에펨코리아 크롤링 스킵 (IP 차단 문제)
+        import os
+        if os.getenv('GITHUB_ACTIONS') == 'true':
+            print("에펨코리아: GitHub Actions 환경에서는 IP 차단으로 인해 스킵합니다.")
+            return posts
+        
+        # 여러 URL 시도 (GitHub Actions 환경 고려)
         urls_to_try = [
             "https://m.fmkorea.com/best2",   # 모바일 버전 우선
             "https://m.fmkorea.com/best",
+            "https://m.fmkorea.com/hotdeal",
             f"{self.base_url}/best2",
             f"{self.base_url}/best", 
+            f"{self.base_url}/hotdeal",
             f"{self.base_url}/index.php?mid=best2",
             f"{self.base_url}/index.php?mid=best",
-            "https://m.fmkorea.com/hotdeal",
-            f"{self.base_url}/hotdeal",
             f"{self.base_url}/index.php?mid=hotdeal",
-            f"{self.base_url}/",  # 메인 페이지도 시도
-            "https://m.fmkorea.com/"
+            "https://m.fmkorea.com/",  # 모바일 메인
+            f"{self.base_url}/"  # 데스크톱 메인
         ]
         
         for attempt, url in enumerate(urls_to_try, 1):
