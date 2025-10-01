@@ -138,44 +138,85 @@ class FmkoreaCrawler(BaseCrawler):
         super().__init__('fmkorea')
         self.base_url = 'https://www.fmkorea.com'
         
-        # 에펨코리아용 간단한 헤더 설정 (430 오류 방지)
+        # 에펨코리아용 최소한의 헤더 설정 (430 오류 방지)
         self.session.headers.clear()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'curl/7.68.0'
         })
+        
+        # 요청 간격을 더 늘리고 타임아웃 설정
+        import time
+        self._last_request_time = 0
+        self.request_delay = 3  # 3초 간격
     
     def crawl_popular_posts(self) -> List[Dict]:
         """fmkorea 인기 게시물 크롤링"""
         posts = []
         
-        # 여러 URL 시도
+        # 여러 URL 시도 (모바일 우선)
         urls_to_try = [
+            "https://m.fmkorea.com/best2",   # 모바일 버전 우선
+            "https://m.fmkorea.com/best",
+            "https://m.fmkorea.com/hotdeal",
             f"{self.base_url}/best2",
-            f"{self.base_url}/best",
+            f"{self.base_url}/best", 
+            f"{self.base_url}/hotdeal",
             f"{self.base_url}/index.php?mid=best2",
             f"{self.base_url}/index.php?mid=best",
-            f"{self.base_url}/hotdeal",
-            f"{self.base_url}/index.php?mid=hotdeal",
-            "https://m.fmkorea.com/best2",  # 모바일 버전
-            "https://m.fmkorea.com/best"
+            f"{self.base_url}/index.php?mid=hotdeal"
         ]
         
         for attempt, url in enumerate(urls_to_try, 1):
             try:
                 print(f"에펨코리아 크롤링 시도 {attempt}: {url}")
                 
-                # 재시도 로직 추가
+                # 요청 간격 조절 (Rate Limiting 방지)
+                import time
+                current_time = time.time()
+                if current_time - self._last_request_time < self.request_delay:
+                    sleep_time = self.request_delay - (current_time - self._last_request_time)
+                    print(f"요청 간격 조절: {sleep_time:.1f}초 대기")
+                    time.sleep(sleep_time)
+                
+                # urllib을 사용한 더 간단한 요청 방식 시도
                 response = None
                 for retry in range(3):
                     try:
-                        response = self.session.get(url, timeout=15, allow_redirects=True)
+                        # urllib 사용으로 헤더 최소화
+                        import urllib.request
+                        import urllib.error
+                        
+                        req = urllib.request.Request(
+                            url,
+                            headers={'User-Agent': 'curl/7.68.0'}
+                        )
+                        
+                        with urllib.request.urlopen(req, timeout=15) as response_raw:
+                            content = response_raw.read()
+                            
+                        # requests Response 객체처럼 만들기
+                        class SimpleResponse:
+                            def __init__(self, content):
+                                self.content = content
+                                self.text = content.decode('utf-8', errors='ignore')
+                                self.status_code = 200
+                        
+                        response = SimpleResponse(content)
                         print(f"에펨코리아 응답 상태: {response.status_code}")
-                        response.raise_for_status()
+                        self._last_request_time = time.time()
                         break
-                    except requests.exceptions.RequestException as e:
+                        
+                    except Exception as e:
                         print(f"에펨코리아 요청 실패 (재시도 {retry+1}/3): {e}")
                         if retry == 2:
-                            raise
+                            # urllib 실패시 기존 requests 방식으로 폴백
+                            try:
+                                response = self.session.get(url, timeout=15, allow_redirects=True)
+                                response.raise_for_status()
+                                self._last_request_time = time.time()
+                                break
+                            except:
+                                raise e
                         time.sleep(2)
                 
                 if not response:

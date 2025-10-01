@@ -27,28 +27,28 @@ class CommunityScreenshotCapture:
         # 캡처 디렉토리 생성
         self.capture_dir.mkdir(parents=True, exist_ok=True)
         
-        # 사이트별 설정
+        # 사이트별 설정 - 속도 최적화
         self.site_configs = {
             'ppomppu': {
                 'name': '뽐뿌',
-                'wait_selectors': ['.view_contents', '.comment', 'img'],
-                'scroll_delay': 2,
-                'has_mobile_popup': True  # 모바일 웹 팝업 있음
+                'wait_selectors': ['.view_contents'],  # 필수 요소만
+                'scroll_delay': 1,  # 2초 → 1초
+                'has_mobile_popup': True
             },
             'fmkorea': {
                 'name': '에펨코리아',
-                'wait_selectors': ['.xe_content', '.fdb_lst', 'img'],
-                'scroll_delay': 3
+                'wait_selectors': ['.xe_content'],  # 필수 요소만
+                'scroll_delay': 1  # 3초 → 1초
             },
             'bobae': {
                 'name': '보배드림',
-                'wait_selectors': ['.bodys', '.comment', 'img'],
-                'scroll_delay': 2
+                'wait_selectors': ['.bodys'],  # 필수 요소만
+                'scroll_delay': 1  # 2초 → 1초
             },
             'dcinside': {
                 'name': '디시인사이드',
-                'wait_selectors': ['.writing_view_box', '.comment_box', 'img'],
-                'scroll_delay': 2
+                'wait_selectors': ['.writing_view_box'],  # 필수 요소만
+                'scroll_delay': 1  # 2초 → 1초
             }
         }
     
@@ -79,10 +79,10 @@ class CommunityScreenshotCapture:
             # 팝업 처리 후 추가 로딩 대기
             await asyncio.sleep(1)
             
-            # 주요 요소 로딩 대기
+            # 주요 요소 로딩 대기 (타임아웃 단축)
             for selector in site_config['wait_selectors']:
                 try:
-                    await page.wait_for_selector(selector, timeout=5000)
+                    await page.wait_for_selector(selector, timeout=3000)  # 5초 → 3초
                 except:
                     continue  # 일부 요소가 없어도 계속 진행
             
@@ -140,7 +140,7 @@ class CommunityScreenshotCapture:
                 
                 # 스크롤
                 await page.evaluate(f'window.scrollTo(0, {scroll_y})')
-                await asyncio.sleep(0.8)  # 스크롤 안정화 대기
+                await asyncio.sleep(0.4)  # 0.8초 → 0.4초
                 
                 # 파일명 생성
                 if segments == 1:
@@ -252,7 +252,7 @@ class CommunityScreenshotCapture:
             while scroll_position < page_height:
                 scroll_position += viewport_height * 0.8
                 await page.evaluate(f'window.scrollTo(0, {scroll_position})')
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(0.3)  # 0.5초 → 0.3초
             
             # 맨 아래까지 스크롤
             await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
@@ -260,7 +260,7 @@ class CommunityScreenshotCapture:
             
             # 다시 맨 위로 스크롤 (전체 캡처를 위해)
             await page.evaluate('window.scrollTo(0, 0)')
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)  # 1초 → 0.5초
             
         except Exception as e:
             print(f"⚠️ 스크롤 중 오류: {e}")
@@ -332,9 +332,9 @@ class CommunityScreenshotCapture:
                             else:
                                 captured_files.append(post_files)
                         
-                        # 사이트 부하 방지를 위한 딜레이
+                        # 사이트 부하 방지를 위한 딜레이 (단축)
                         if i < len(posts):
-                            await asyncio.sleep(2)
+                            await asyncio.sleep(1)  # 2초 → 1초
                 
                 print(f"\n✅ 고해상도 갤럭시 S25 분할 캡처 완료!")
                 print(f"📊 총 {len(captured_files)}개 파일 생성 (갤럭시 S25: 412x915 @ 3x DPI)")

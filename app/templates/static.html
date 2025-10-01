@@ -62,17 +62,15 @@
         <div class="posts-container" id="postsContainer">
             {% for post in posts %}
             <div class="post-card" data-site="{{ post.site }}" data-views="{{ post.views or 0 }}" data-likes="{{ post.likes or 0 }}" data-date="{{ post.crawled_at }}">
-                <div class="post-header">
+                <div class="post-title">
                     <span class="site-badge {{ post.site }}">
                         {% if post.site == 'bobae' %}보배
                         {% elif post.site == 'dcinside' %}디시
                         {% elif post.site == 'ppomppu' %}뽐뿌
-                        {% elif post.site == 'fmkorea' %}에펨코리아
+                        {% elif post.site == 'fmkorea' %}에펨
                         {% else %}{{ post.site }}
                         {% endif %}
                     </span>
-                </div>
-                <div class="post-title">
                     <a href="{{ post.url }}" target="_blank">{{ post.title }}</a>
                 </div>
                 <div class="post-meta">
@@ -97,14 +95,12 @@
         // 정적 사이트용 필터링 기능
         document.addEventListener('DOMContentLoaded', function() {
             const siteFilter = document.getElementById('siteFilter');
-            const sortFilter = document.getElementById('sortFilter');
             const searchInput = document.getElementById('searchInput');
             const searchBtn = document.getElementById('searchBtn');
             const postsContainer = document.getElementById('postsContainer');
             
             function filterPosts() {
                 const siteValue = siteFilter.value;
-                const sortValue = sortFilter.value;
                 const searchValue = searchInput.value.toLowerCase();
                 
                 const posts = Array.from(postsContainer.querySelectorAll('.post-card'));
@@ -112,7 +108,8 @@
                 // 필터링
                 posts.forEach(post => {
                     const site = post.dataset.site;
-                    const title = post.querySelector('.post-title a').textContent.toLowerCase();
+                    const titleElement = post.querySelector('.post-title a');
+                    const title = titleElement ? titleElement.textContent.toLowerCase() : '';
                     
                     const siteMatch = siteValue === 'all' || site === siteValue;
                     const searchMatch = searchValue === '' || title.includes(searchValue);
@@ -120,25 +117,32 @@
                     post.style.display = (siteMatch && searchMatch) ? 'block' : 'none';
                 });
                 
-                // 정렬
-                const visiblePosts = posts.filter(post => post.style.display !== 'none');
-                
-                if (sortValue === 'views') {
-                    visiblePosts.sort((a, b) => (parseInt(b.dataset.views) || 0) - (parseInt(a.dataset.views) || 0));
-                } else if (sortValue === 'likes') {
-                    visiblePosts.sort((a, b) => (parseInt(b.dataset.likes) || 0) - (parseInt(a.dataset.likes) || 0));
-                } else { // latest
-                    visiblePosts.sort((a, b) => new Date(b.dataset.date) - new Date(a.dataset.date));
-                }
-                
-                // 재배치
-                visiblePosts.forEach(post => postsContainer.appendChild(post));
+                // 통계 업데이트
+                updateStats();
             }
             
+            function updateStats() {
+                const visiblePosts = postsContainer.querySelectorAll('.post-card[style*="block"], .post-card:not([style*="none"])');
+                const totalElement = document.getElementById('totalPosts');
+                if (totalElement) {
+                    totalElement.textContent = visiblePosts.length;
+                }
+            }
+            
+            // 이벤트 리스너
             siteFilter.addEventListener('change', filterPosts);
-            sortFilter.addEventListener('change', filterPosts);
             searchInput.addEventListener('input', filterPosts);
             searchBtn.addEventListener('click', filterPosts);
+            
+            // 엔터키 검색
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    filterPosts();
+                }
+            });
+            
+            // 초기 통계 설정
+            updateStats();
         });
     </script>
 </body>

@@ -111,20 +111,18 @@ def generate_static():
 def generate_static_html(posts, site_stats):
     """정적 HTML 생성 함수"""
     site_names = {
-        'bobae': '보배드림',
+        'bobae': '보배',
         'ppomppu': '뽐뿌', 
-        'fmkorea': 'fmkorea',
-        'dcinside': '디시인사이드'
+        'fmkorea': '에펨',
+        'dcinside': '디시'
     }
     
     posts_html = ""
     for post in posts:
         posts_html += f"""
         <div class="post-card">
-            <div class="post-header">
-                <span class="site-badge {post.site}">{site_names.get(post.site, post.site)}</span>
-            </div>
             <div class="post-title">
+                <span class="site-badge {post.site}">{site_names.get(post.site, post.site)}</span>
                 <a href="{post.url}" target="_blank" rel="noopener noreferrer">
                     {post.title}
                 </a>
