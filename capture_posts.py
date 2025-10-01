@@ -51,11 +51,16 @@ class CommunityScreenshotCapture:
         try:
             print(f"📱 캡처 시작: {post.site} - {post.title[:50]}...")
             
-            # 갤럭시 S25 화면 설정으로 새 페이지 생성 - 고해상도
+            # 갤럭시 S25 화면 설정으로 새 페이지 생성 - 한글 폰트 최적화
             context = await browser.new_context(
                 viewport={'width': 412, 'height': 915},  # 갤럭시 S25 크기 (412x915)
-                device_scale_factor=3.0,  # 3배 해상도로 선명도 향상
-                user_agent='Mozilla/5.0 (Linux; Android 14; SM-S926B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+                device_scale_factor=2.0,  # 3배 → 2배로 줄여서 안정화
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                locale='ko-KR',  # 한국어 로케일 설정
+                timezone_id='Asia/Seoul',  # 한국 시간대
+                extra_http_headers={
+                    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
+                }
             )
             
             page = await context.new_page()
@@ -77,7 +82,7 @@ class CommunityScreenshotCapture:
                     print(f"  ⚠️ 페이지 로딩 지연, 계속 진행: {post.site}")
                     # 타임아웃이어도 페이지가 부분적으로 로딩되었을 수 있으므로 계속 진행
             
-            # 페이지 인코딩 설정 (한글 깨짐 방지)
+            # 페이지 인코딩 및 폰트 강제 설정
             await page.evaluate("""
                 // 페이지 인코딩 UTF-8로 강제 설정
                 if (document.querySelector('meta[charset]')) {
@@ -88,8 +93,27 @@ class CommunityScreenshotCapture:
                     document.head.appendChild(meta);
                 }
                 
-                // 폰트 렌더링 개선
-                document.documentElement.style.fontFamily = 'Malgun Gothic, Apple Gothic, sans-serif';
+                // 웹폰트 로드
+                const link = document.createElement('link');
+                link.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap';
+                link.rel = 'stylesheet';
+                document.head.appendChild(link);
+                
+                // 폰트 강제 적용
+                const applyFont = () => {
+                    const elements = document.querySelectorAll('*');
+                    elements.forEach(el => {
+                        if (el.style) {
+                            el.style.fontFamily = 'Noto Sans KR, Malgun Gothic, 맑은 고딕, Apple SD Gothic Neo, sans-serif';
+                        }
+                    });
+                };
+                
+                // 즉시 적용
+                applyFont();
+                
+                // 폰트 로드 후 다시 적용
+                setTimeout(applyFont, 2000);
             """)
             
             # 추가 로딩 대기
@@ -111,19 +135,25 @@ class CommunityScreenshotCapture:
             if not element_found:
                 print(f"    ℹ️ 주요 요소 없지만 계속 진행: {post.site}")
             
-            # 고품질 렌더링을 위한 CSS 주입
+            # 한글 폰트 강제 적용을 위한 CSS 주입
             await page.add_style_tag(content="""
+                @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+                
                 * {
+                    font-family: 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif !important;
                     -webkit-font-smoothing: antialiased !important;
                     -moz-osx-font-smoothing: grayscale !important;
                     text-rendering: optimizeLegibility !important;
                 }
+                
+                body, div, span, p, h1, h2, h3, h4, h5, h6, a, td, th {
+                    font-family: 'Noto Sans KR', '맑은 고딕', 'Malgun Gothic' !important;
+                    font-weight: 400 !important;
+                }
+                
                 img {
                     image-rendering: -webkit-optimize-contrast !important;
                     image-rendering: crisp-edges !important;
-                }
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', sans-serif !important;
                 }
             """)
             
@@ -173,16 +203,16 @@ class CommunityScreenshotCapture:
             return None
     
     async def capture_in_segments(self, page, post, safe_title):
-        """갤럭시 S25 사이즈에 맞게 페이지를 여러 구간으로 나누어 캡처"""
+        """갤럭시 S25 사이즈에 맞게 페이지를 여러 구간으로 나누어 캡처 (최대 10개 제한)"""
         try:
             # 전체 페이지 높이 확인
             total_height = await page.evaluate('document.body.scrollHeight')
             viewport_height = 915  # 갤럭시 S25 높이
             
-            # 캡처할 구간 수 계산
-            segments = max(1, (total_height + viewport_height - 1) // viewport_height)
+            # 캡처할 구간 수 계산 (최대 10개로 제한)
+            segments = max(1, min(10, (total_height + viewport_height - 1) // viewport_height))
             
-            print(f"  📏 전체 높이: {total_height}px, {segments}개 구간으로 분할")
+            print(f"  📏 전체 높이: {total_height}px, {segments}개 구간으로 분할 (최대 10개 제한)")
             
             captured_files = []
             
