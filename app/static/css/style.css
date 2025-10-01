@@ -252,14 +252,33 @@ body {
 }
 
 .site-prefix {
+    padding: 4px 12px;
+    border-radius: 20px;
     font-size: 12px;
-    font-weight: bold;
-    color: #667eea;
-    background: rgba(102, 126, 234, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
     white-space: nowrap;
     margin-top: 2px;
+}
+
+.site-prefix.bobae {
+    background: #ff6b6b;
+    color: white;
+}
+
+.site-prefix.ppomppu {
+    background: #4ecdc4;
+    color: white;
+}
+
+.site-prefix.fmkorea {
+    background: #45b7d1;
+    color: white;
+}
+
+.site-prefix.dcinside {
+    background: #96ceb4;
+    color: white;
 }
 
 .post-title a {

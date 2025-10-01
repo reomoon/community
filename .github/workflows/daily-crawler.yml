@@ -34,13 +34,13 @@ jobs:
       env:
         PYTHONPATH: .
       run: |
-        python dev/crawl_only.py
+        python dev/crawl_only.py || echo "크롤링 중 일부 오류 발생했지만 계속 진행"
         
     - name: Capture mobile screenshots
       env:
         PYTHONPATH: .
       run: |
-        python capture_posts.py
+        python capture_posts.py || echo "모바일 캡처 중 일부 오류 발생했지만 계속 진행"
 
     - name: Debug Python Path
       run: |
@@ -63,10 +63,10 @@ jobs:
                 posts = Post.query.order_by(Post.crawled_at.desc()).limit(50).all()
                 
                 sites = {
-                    'ppomppu': {'name': '뽐뿌', 'enabled': True},
-                    'fmkorea': {'name': '에펨코리아', 'enabled': True},
                     'bobae': {'name': '보배드림', 'enabled': True},
-                    'dcinside': {'name': '디시인사이드', 'enabled': True}
+                    'dcinside': {'name': '디시인사이드', 'enabled': True},
+                    'ppomppu': {'name': '뽐뿌', 'enabled': True},
+                    'fmkorea': {'name': '에펨코리아', 'enabled': True}
                 }
                 
                 # 한국시간으로 변경 (UTC+9)
@@ -76,7 +76,7 @@ jobs:
                 html = render_template('static.html', 
                                      posts=posts, 
                                      sites=sites,
-                                     last_updated=datetime.now(kst).strftime('%Y-%m-%d %H:%M KST'))
+                                     last_updated=datetime.now(kst).strftime('%Y-%m-%d %H:%M'))
             
             with open('index.html', 'w', encoding='utf-8') as f:
                 f.write(html)

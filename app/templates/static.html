@@ -30,14 +30,14 @@
                     </select>
                 </div>
                 
-                <div class="filter-group">
+                <!-- <div class="filter-group">
                     <label>정렬:</label>
                     <select id="sortFilter">
                         <option value="latest">최신순</option>
                         <option value="views">조회수순</option>
                         <option value="likes">추천순</option>
                     </select>
-                </div>
+                </div> -->
             </div>
             
             <div class="search-group">
@@ -62,15 +62,17 @@
         <div class="posts-container" id="postsContainer">
             {% for post in posts %}
             <div class="post-card" data-site="{{ post.site }}" data-views="{{ post.views or 0 }}" data-likes="{{ post.likes or 0 }}" data-date="{{ post.crawled_at }}">
-                <div class="post-title">
-                    <span class="site-prefix">
-                        {% if post.site == 'ppomppu' %}[뽐뿌]
-                        {% elif post.site == 'fmkorea' %}[에펨코리아]
-                        {% elif post.site == 'bobae' %}[보배]
-                        {% elif post.site == 'dcinside' %}[디시]
-                        {% else %}[{{ post.site }}]
+                <div class="post-header">
+                    <span class="site-badge {{ post.site }}">
+                        {% if post.site == 'bobae' %}보배
+                        {% elif post.site == 'dcinside' %}디시
+                        {% elif post.site == 'ppomppu' %}뽐뿌
+                        {% elif post.site == 'fmkorea' %}에펨코리아
+                        {% else %}{{ post.site }}
                         {% endif %}
                     </span>
+                </div>
+                <div class="post-title">
                     <a href="{{ post.url }}" target="_blank">{{ post.title }}</a>
                 </div>
                 <div class="post-meta">
@@ -87,7 +89,6 @@
 
         <footer style="text-align:center;margin-top:2rem;color:#666">
             <p>마지막 업데이트: {{ last_updated }}</p>
-            <p><a href="https://github.com/reomoon/community">GitHub</a></p>
         </footer>
     </div>
 

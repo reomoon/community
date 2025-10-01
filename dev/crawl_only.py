@@ -29,31 +29,41 @@ def crawl_all_sites():
         print(f"Flask 앱 초기화 실패: {e} - JSON 파일로만 저장됩니다")
         use_database = False
     
-    # 크롤러들 초기화
+    # 크롤러들 초기화 (보배, 디시, 뽐뿌, 에펨코리아 순)
     crawlers = {
-        'ppomppu': PpomppuCrawler(),
-        'fmkorea': FmkoreaCrawler(),
         'bobae': BobaeCrawler(),
-        'dcinside': DcinsideCrawler()
+        'dcinside': DcinsideCrawler(),
+        'ppomppu': PpomppuCrawler(),
+        'fmkorea': FmkoreaCrawler()
     }
     
     all_posts = []
     
     for site_name, crawler in crawlers.items():
         try:
-            print(f"{site_name} 크롤링 시작...")
+            print(f"\n=== {site_name.upper()} 크롤링 시작 ===")
             posts = crawler.crawl_popular_posts()
             
-            # 사이트별 결과 저장
-            for post in posts:
-                post['crawled_time'] = datetime.now().isoformat()
-                all_posts.append(post)
-            
-            print(f"{site_name}: {len(posts)}개 게시물 크롤링 완료")
+            if posts:
+                # 사이트별 결과 저장
+                for post in posts:
+                    post['crawled_time'] = datetime.now().isoformat()
+                    all_posts.append(post)
+                
+                print(f"✅ {site_name}: {len(posts)}개 게시물 크롤링 완료")
+            else:
+                print(f"⚠️ {site_name}: 크롤링된 게시물이 없습니다")
             
         except Exception as e:
-            print(f"{site_name} 크롤링 오류: {e}")
-            continue
+            print(f"❌ {site_name} 크롤링 오류: {e}")
+            import traceback
+            print(f"상세 오류 정보:\n{traceback.format_exc()}")
+            
+            # 에펨코리아 크롤링 실패 시 특별 처리
+            if site_name == 'fmkorea':
+                print("에펨코리아 크롤링 실패 - GitHub Actions 환경에서 접근 제한 가능성")
+            
+            continue  # 다음 사이트 계속 진행
     
     # 데이터베이스에 저장
     if use_database and all_posts:

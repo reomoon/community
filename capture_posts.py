@@ -32,7 +32,8 @@ class CommunityScreenshotCapture:
             'ppomppu': {
                 'name': '뽐뿌',
                 'wait_selectors': ['.view_contents', '.comment', 'img'],
-                'scroll_delay': 2
+                'scroll_delay': 2,
+                'has_mobile_popup': True  # 모바일 웹 팝업 있음
             },
             'fmkorea': {
                 'name': '에펨코리아',
@@ -70,6 +71,13 @@ class CommunityScreenshotCapture:
             
             # 페이지 로딩 대기
             await asyncio.sleep(2)
+            
+            # 뽐뿌 모바일 팝업 처리
+            if site_config.get('has_mobile_popup', False):
+                await self.handle_ppomppu_mobile_popup(page)
+                
+            # 팝업 처리 후 추가 로딩 대기
+            await asyncio.sleep(1)
             
             # 주요 요소 로딩 대기
             for selector in site_config['wait_selectors']:
@@ -159,6 +167,79 @@ class CommunityScreenshotCapture:
             print(f"❌ 분할 캡처 실패: {e}")
             return []
     
+    async def handle_ppomppu_mobile_popup(self, page):
+        """뽐뿌 사이트의 모바일 웹 팝업 처리"""
+        try:
+            print("  📱 뽐뿌 모바일 팝업 확인 중...")
+            
+            # 모바일 웹으로 보기 버튼 찾기 (다양한 셀렉터 시도)
+            mobile_button_selectors = [
+                'a[href*="mobile"]',  # 모바일 링크
+                '.mobile_btn',        # 모바일 버튼 클래스
+                'button:has-text("모바일")',  # 모바일 텍스트 포함 버튼
+                'a:has-text("모바일웹")',      # 모바일웹 텍스트 포함 링크
+                'a:has-text("불편해도")',      # 불편해도 텍스트 포함 링크
+                '.popup a',           # 팝업 내의 링크
+                '.modal a'            # 모달 내의 링크
+            ]
+            
+            for selector in mobile_button_selectors:
+                try:
+                    # 버튼이 존재하고 보이는지 확인
+                    element = await page.wait_for_selector(selector, timeout=3000)
+                    if element and await element.is_visible():
+                        print(f"  ✅ 모바일 버튼 발견: {selector}")
+                        await element.click()
+                        print("  🔘 모바일 웹으로 보기 버튼 클릭 완료")
+                        await asyncio.sleep(2)  # 페이지 로딩 대기
+                        break
+                except:
+                    continue
+            
+            # 팝업 닫기 버튼도 시도
+            close_selectors = [
+                '.close',
+                '.popup_close', 
+                '.modal_close',
+                '[class*="close"]',
+                'button:has-text("닫기")',
+                'a:has-text("닫기")'
+            ]
+            
+            for selector in close_selectors:
+                try:
+                    element = await page.wait_for_selector(selector, timeout=1000)
+                    if element and await element.is_visible():
+                        await element.click()
+                        print("  ❌ 팝업 닫기 버튼 클릭")
+                        await asyncio.sleep(1)
+                        break
+                except:
+                    continue
+            
+            # JavaScript로 강제 팝업 제거 (최후 수단)
+            await page.evaluate("""
+                // 모든 팝업 관련 요소 제거
+                const popupSelectors = ['.popup', '.modal', '.layer', '.overlay', '[class*="popup"]', '[id*="popup"]'];
+                popupSelectors.forEach(selector => {
+                    document.querySelectorAll(selector).forEach(el => {
+                        if (el.style.display !== 'none' && el.offsetParent !== null) {
+                            el.style.display = 'none';
+                            el.remove();
+                        }
+                    });
+                });
+                
+                // body 스타일 정상화 (팝업으로 인한 스크롤 방지 해제)
+                document.body.style.overflow = 'auto';
+                document.documentElement.style.overflow = 'auto';
+            """)
+                    
+            print("  ✅ 뽐뿌 팝업 처리 완료")
+            
+        except Exception as e:
+            print(f"  ⚠️ 뽐뿌 팝업 처리 중 오류 (계속 진행): {e}")
+    
     async def scroll_to_load_content(self, page, delay=2):
         """페이지를 스크롤하여 댓글 등 동적 컨텐츠 로드"""
         try:
@@ -185,17 +266,25 @@ class CommunityScreenshotCapture:
             print(f"⚠️ 스크롤 중 오류: {e}")
     
     async def get_top_posts(self):
-        """각 사이트별 상위 2개 게시물 조회"""
+        """각 사이트별 랜덤 5개 게시물 조회"""
+        import random
         app = create_app()
         posts_by_site = {}
         
         with app.app_context():
-            for site in ['ppomppu', 'fmkorea', 'bobae', 'dcinside']:
-                posts = Post.query.filter(Post.site == site)\
-                    .order_by(Post.views.desc().nullslast())\
-                    .limit(2).all()
+            for site in ['bobae', 'dcinside', 'ppomppu', 'fmkorea']:
+                # 전체 게시물 중에서 랜덤 선택
+                all_posts = Post.query.filter(Post.site == site).all()
+                
+                if len(all_posts) > 5:
+                    # 5개 이상 있으면 랜덤으로 5개 선택
+                    posts = random.sample(all_posts, 5)
+                else:
+                    # 5개 미만이면 모든 게시물 선택
+                    posts = all_posts
+                
                 posts_by_site[site] = posts
-                print(f"📋 {self.site_configs[site]['name']}: {len(posts)}개 게시물")
+                print(f"📋 {self.site_configs[site]['name']}: {len(posts)}개 게시물 (랜덤 선택)")
         
         return posts_by_site
     
