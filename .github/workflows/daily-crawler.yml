@@ -2,8 +2,8 @@ name: Daily Community Crawler
 
 on:
   schedule:
-    # UTC+0 기준이므로 한국시간 오후 7시
-    - cron: '0 10 * * *'
+    # # UTC+0 기준이므로 한국시간 오후 7시
+    # - cron: '0 10 * * *'
     # UTC+0 기준이므로 한국시간 오전 7시
     - cron: '0 22 * * *'
   
