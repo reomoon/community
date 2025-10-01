@@ -27,14 +27,8 @@ class CommunityScreenshotCapture:
         # 캡처 디렉토리 생성
         self.capture_dir.mkdir(parents=True, exist_ok=True)
         
-        # 사이트별 설정 - 속도 최적화
+        # 사이트별 설정 - 뽐뿌 제외, 속도 최적화
         self.site_configs = {
-            'ppomppu': {
-                'name': '뽐뿌',
-                'wait_selectors': ['.view_contents'],  # 필수 요소만
-                'scroll_delay': 1,  # 2초 → 1초
-                'has_mobile_popup': True
-            },
             'fmkorea': {
                 'name': '에펨코리아',
                 'wait_selectors': ['.xe_content'],  # 필수 요소만
@@ -68,26 +62,39 @@ class CommunityScreenshotCapture:
             
             print(f"  🌐 페이지 이동 중: {post.url}")
             
-            # 페이지 이동
-            await page.goto(post.url, wait_until='domcontentloaded', timeout=30000)
-            print(f"  ✅ 페이지 로딩 완료: {post.site}")
+            # 페이지 이동 (더 안정적인 방법)
+            try:
+                # 먼저 빠른 로딩 시도
+                await page.goto(post.url, wait_until='domcontentloaded', timeout=20000)
+                print(f"  ✅ 페이지 로딩 완료: {post.site}")
+            except Exception as e1:
+                print(f"  ⚠️ 첫 번째 시도 실패, 재시도: {post.site}")
+                try:
+                    # 두 번째 시도: 더 관대한 조건
+                    await page.goto(post.url, wait_until='load', timeout=30000)
+                    print(f"  ✅ 페이지 로딩 완료 (재시도): {post.site}")
+                except Exception as e2:
+                    print(f"  ⚠️ 페이지 로딩 지연, 계속 진행: {post.site}")
+                    # 타임아웃이어도 페이지가 부분적으로 로딩되었을 수 있으므로 계속 진행
             
-            # 뽐뿌 모바일 팝업 처리 (즉시) - 이제 뽐뿌는 제외되므로 실행 안됨
-            if site_config.get('has_mobile_popup', False):
-                await self.handle_ppomppu_mobile_popup(page)
+            # 추가 로딩 대기
+            await asyncio.sleep(2)
             
-            # 페이지 로딩 대기 (팝업 처리 후)
-            await asyncio.sleep(1)
-            
-            # 주요 요소 로딩 대기 (타임아웃 단축)
+            # 주요 요소 로딩 대기 (선택적)
             print(f"  🔍 요소 대기 중: {site_config['wait_selectors']}")
+            element_found = False
             for selector in site_config['wait_selectors']:
                 try:
-                    await page.wait_for_selector(selector, timeout=3000)
+                    await page.wait_for_selector(selector, timeout=5000)
                     print(f"    ✅ 요소 발견: {selector}")
+                    element_found = True
+                    break  # 하나라도 찾으면 충분
                 except Exception as e:
-                    print(f"    ⚠️ 요소 없음: {selector} - {str(e)[:50]}")
-                    continue  # 일부 요소가 없어도 계속 진행
+                    print(f"    ⚠️ 요소 없음: {selector}")
+                    continue
+            
+            if not element_found:
+                print(f"    ℹ️ 주요 요소 없지만 계속 진행: {post.site}")
             
             # 고품질 렌더링을 위한 CSS 주입
             await page.add_style_tag(content="""
