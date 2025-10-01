@@ -53,26 +53,23 @@
         <div class="posts-container" id="postsContainer">
             {% for post in posts %}
             <div class="post-card" data-site="{{ post.site }}" data-views="{{ post.views or 0 }}" data-likes="{{ post.likes or 0 }}" data-date="{{ post.crawled_at }}">
-                <div class="post-header">
-                    <span class="site-badge {{ post.site }}">
-                        {% if post.site == 'ppomppu' %}뽐뿌
-                        {% elif post.site == 'fmkorea' %}fmkorea
-                        {% elif post.site == 'bobae' %}보배드림
-                        {% elif post.site == 'dcinside' %}디시인사이드
-                        {% else %}{{ post.site }}
+                <div class="post-title">
+                    <span class="site-prefix">
+                        {% if post.site == 'ppomppu' %}[뽐뿌]
+                        {% elif post.site == 'fmkorea' %}[에펨]
+                        {% elif post.site == 'bobae' %}[보배]
+                        {% elif post.site == 'dcinside' %}[디시]
+                        {% else %}[{{ post.site }}]
                         {% endif %}
                     </span>
-                    <span class="post-time">{{ post.crawled_at.strftime('%m/%d %H:%M') if post.crawled_at else '' }}</span>
-                </div>
-                <div class="post-title">
                     <a href="{{ post.url }}" target="_blank">{{ post.title }}</a>
                 </div>
                 <div class="post-meta">
-                    <span class="post-author">👤 {{ post.author or '익명' }}</span>
+                    <span class="post-author"><i class="fas fa-user"></i> {{ post.author or '익명' }}</span>
                     <div class="post-stats">
-                        {% if post.views %}<span class="stat-views">조회수: {{ "{:,}".format(post.views) }}</span>{% endif %}
-                        {% if post.likes %}<span class="stat-likes">좋아요: {{ "{:,}".format(post.likes) }}</span>{% endif %}
-                        {% if post.comments %}<span class="stat-comments">댓글: {{ "{:,}".format(post.comments) }}</span>{% endif %}
+                        {% if post.views %}<span class="stat-views"><i class="fas fa-eye"></i> {{ "{:,}".format(post.views) }}</span>{% endif %}
+                        {% if post.likes %}<span class="stat-likes"><i class="fas fa-heart"></i> {{ "{:,}".format(post.likes) }}</span>{% endif %}
+                        {% if post.comments %}<span class="stat-comments"><i class="fas fa-comment"></i> {{ "{:,}".format(post.comments) }}</span>{% endif %}
                     </div>
                 </div>
             </div>
