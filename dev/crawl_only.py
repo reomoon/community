@@ -18,6 +18,17 @@ def crawl_all_sites():
     """모든 사이트 크롤링 실행"""
     print(f"[{datetime.now()}] 크롤링 시작...")
     
+    # Flask 앱 초기화 (데이터베이스 저장용)
+    try:
+        from app import create_app
+        from app.models import Post, db
+        app = create_app()
+        print("Flask 앱 초기화 성공 - 데이터베이스에 저장됩니다")
+        use_database = True
+    except Exception as e:
+        print(f"Flask 앱 초기화 실패: {e} - JSON 파일로만 저장됩니다")
+        use_database = False
+    
     # 크롤러들 초기화
     crawlers = {
         'ppomppu': PpomppuCrawler(),
@@ -43,6 +54,36 @@ def crawl_all_sites():
         except Exception as e:
             print(f"{site_name} 크롤링 오류: {e}")
             continue
+    
+    # 데이터베이스에 저장
+    if use_database and all_posts:
+        try:
+            with app.app_context():
+                # 기존 데이터 삭제 (최신 데이터만 유지)
+                Post.query.delete()
+                
+                # 새 데이터 저장
+                for post_data in all_posts:
+                    post = Post(
+                        title=post_data['title'],
+                        url=post_data['url'],
+                        author=post_data.get('author'),
+                        site=post_data['site'],
+                        category=post_data.get('category', 'humor'),
+                        views=post_data.get('views'),
+                        likes=post_data.get('likes'),
+                        comments=post_data.get('comments'),
+                        crawled_at=datetime.now()
+                    )
+                    db.session.add(post)
+                
+                db.session.commit()
+                print(f"데이터베이스에 {len(all_posts)}개 게시물 저장 완료")
+        except Exception as e:
+            print(f"데이터베이스 저장 오류: {e}")
+            if 'app' in locals():
+                with app.app_context():
+                    db.session.rollback()
     
     # output 폴더 생성 (존재하지 않을 경우)
     output_dir = "output"
