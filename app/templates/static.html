@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>한국 커뮤니티 핫이슈</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <header class="header">
+            <h1><i class="fas fa-fire"></i> 커뮤니티 핫이슈</h1>
+            <p class="subtitle">매일 업데이트 되는 커뮤니티 모음 사이트</p>
+        </header>
+
+        <!-- 필터 및 검색 -->
+        <div class="controls">
+            <div class="filters">
+                <div class="filter-group">
+                    <label>사이트:</label>
+                    <select id="siteFilter">
+                        <option value="all">전체</option>
+                        {% for key, value in sites.items() %}
+                        {% if value.enabled %}
+                        <option value="{{ key }}">{{ value.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label>정렬:</label>
+                    <select id="sortFilter">
+                        <option value="latest">최신순</option>
+                        <option value="views">조회수순</option>
+                        <option value="likes">추천순</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="search-group">
+                <input type="text" id="searchInput" placeholder="제목 검색...">
+                <button id="searchBtn"><i class="fas fa-search"></i></button>
+            </div>
+        </div>
+
+        <!-- 통계 정보 -->
+        <div class="stats" id="statsSection">
+            <div class="stat-item">
+                <i class="fas fa-list"></i>
+                <span>총 게시물: <strong id="totalPosts">{{ posts|length }}</strong></span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-clock"></i>
+                <span>마지막 업데이트: <strong id="lastUpdate">{{ last_updated }}</strong></span>
+            </div>
+        </div>
+
+        <!-- 게시물 목록 -->
+        <div class="posts-container" id="postsContainer">
+            {% for post in posts %}
+            <div class="post-card" data-site="{{ post.site }}" data-views="{{ post.views or 0 }}" data-likes="{{ post.likes or 0 }}" data-date="{{ post.crawled_at }}">
+                <div class="post-header">
+                    <span class="site-badge {{ post.site }}">
+                        {% if post.site == 'ppomppu' %}뽐뿌
+                        {% elif post.site == 'fmkorea' %}fmkorea
+                        {% elif post.site == 'bobae' %}보배드림
+                        {% elif post.site == 'dcinside' %}디시인사이드
+                        {% else %}{{ post.site }}
+                        {% endif %}
+                    </span>
+                    <span class="post-time">{{ post.crawled_at.strftime('%m/%d %H:%M') if post.crawled_at else '' }}</span>
+                </div>
+                <div class="post-title">
+                    <a href="{{ post.url }}" target="_blank">{{ post.title }}</a>
+                </div>
+                <div class="post-meta">
+                    <span class="post-author">👤 {{ post.author or '익명' }}</span>
+                    <div class="post-stats">
+                        {% if post.views %}<span class="stat-views">조회수: {{ "{:,}".format(post.views) }}</span>{% endif %}
+                        {% if post.likes %}<span class="stat-likes">좋아요: {{ "{:,}".format(post.likes) }}</span>{% endif %}
+                        {% if post.comments %}<span class="stat-comments">댓글: {{ "{:,}".format(post.comments) }}</span>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <footer style="text-align:center;margin-top:2rem;color:#666">
+            <p>마지막 업데이트: {{ last_updated }}</p>
+            <p><a href="https://github.com/reomoon/community">GitHub</a></p>
+        </footer>
+    </div>
+
+    <!-- 정적 사이트용 간소화된 JavaScript -->
+    <script>
+        // 정적 사이트용 필터링 기능
+        document.addEventListener('DOMContentLoaded', function() {
+            const siteFilter = document.getElementById('siteFilter');
+            const sortFilter = document.getElementById('sortFilter');
+            const searchInput = document.getElementById('searchInput');
+            const searchBtn = document.getElementById('searchBtn');
+            const postsContainer = document.getElementById('postsContainer');
+            
+            function filterPosts() {
+                const siteValue = siteFilter.value;
+                const sortValue = sortFilter.value;
+                const searchValue = searchInput.value.toLowerCase();
+                
+                const posts = Array.from(postsContainer.querySelectorAll('.post-card'));
+                
+                // 필터링
+                posts.forEach(post => {
+                    const site = post.dataset.site;
+                    const title = post.querySelector('.post-title a').textContent.toLowerCase();
+                    
+                    const siteMatch = siteValue === 'all' || site === siteValue;
+                    const searchMatch = searchValue === '' || title.includes(searchValue);
+                    
+                    post.style.display = (siteMatch && searchMatch) ? 'block' : 'none';
+                });
+                
+                // 정렬
+                const visiblePosts = posts.filter(post => post.style.display !== 'none');
+                
+                if (sortValue === 'views') {
+                    visiblePosts.sort((a, b) => (parseInt(b.dataset.views) || 0) - (parseInt(a.dataset.views) || 0));
+                } else if (sortValue === 'likes') {
+                    visiblePosts.sort((a, b) => (parseInt(b.dataset.likes) || 0) - (parseInt(a.dataset.likes) || 0));
+                } else { // latest
+                    visiblePosts.sort((a, b) => new Date(b.dataset.date) - new Date(a.dataset.date));
+                }
+                
+                // 재배치
+                visiblePosts.forEach(post => postsContainer.appendChild(post));
+            }
+            
+            siteFilter.addEventListener('change', filterPosts);
+            sortFilter.addEventListener('change', filterPosts);
+            searchInput.addEventListener('input', filterPosts);
+            searchBtn.addEventListener('click', filterPosts);
+        });
+    </script>
+</body>
+</html>

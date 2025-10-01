@@ -39,8 +39,12 @@ def crawl_all_sites():
             print(f"{site_name} 크롤링 오류: {e}")
             continue
     
+    # output 폴더 생성 (존재하지 않을 경우)
+    output_dir = "output"
+    os.makedirs(output_dir, exist_ok=True)
+    
     # 결과를 JSON 파일로 저장
-    output_file = f"crawl_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    output_file = os.path.join(output_dir, f"crawl_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
     
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump({

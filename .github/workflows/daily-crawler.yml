@@ -41,31 +41,53 @@ jobs:
     - name: Generate static HTML from crawled data
       run: |
         python -c "
-        import sys, os
+        import sys, os, shutil
         sys.path.append('.')
         from app import create_app
         from app.models import Post
+        from flask import render_template
         from datetime import datetime
 
         app = create_app()
+        
+        # Flask 애플리케이션 컨텍스트와 요청 컨텍스트 설정
         with app.app_context():
-            posts = Post.query.order_by(Post.crawled_at.desc()).limit(50).all()
-            site_names = {'bobae': '보배드림', 'ppomppu': '뽐뿌', 'fmkorea': 'fmkorea', 'dcinside': '디시인사이드'}
-
-            posts_html = ''
-            for post in posts:
-                stats_html = ''
-                if post.views: stats_html += f'<span>조회수: {post.views:,}</span>'
-                if post.likes: stats_html += f'<span>좋아요: {post.likes:,}</span>'
-                if post.comments: stats_html += f'<span>댓글: {post.comments:,}</span>'
-
-                posts_html += f'<div class=\"post-card\"><div class=\"post-header\"><span class=\"site-badge {post.site}\">{site_names.get(post.site, post.site)}</span></div><div class=\"post-title\"><a href=\"{post.url}\" target=\"_blank\">{post.title}</a></div><div class=\"post-meta\"><span>👤 {post.author or \"익명\"}</span><div class=\"post-stats\">{stats_html}</div></div></div>'
-
-            html = f'<!DOCTYPE html><html lang=\"ko\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>한국 커뮤니티 핫이슈</title><link rel=\"stylesheet\" href=\"static/css/style.css\"></head><body><div class=\"container\"><header class=\"header\"><h1>🔥 커뮤니티 핫이슈</h1><p>실시간 업데이트 - 총 {len(posts)}개의 인기 게시물</p></header><div class=\"posts-container\">{posts_html}</div><footer style=\"text-align:center;margin-top:2rem;color:#666\"><p>마지막 업데이트: {datetime.now().strftime(\"%Y-%m-%d %H:%M\")}</p><p><a href=\"https://github.com/reomoon/community\">GitHub</a></p></footer></div></body></html>'
-
+            with app.test_request_context():
+                posts = Post.query.order_by(Post.crawled_at.desc()).limit(50).all()
+                
+                # 사이트 정보 정의
+                sites = {
+                    'ppomppu': {'name': '뽐뿌', 'enabled': True},
+                    'fmkorea': {'name': 'fmkorea', 'enabled': True},
+                    'bobae': {'name': '보배드림', 'enabled': True},
+                    'dcinside': {'name': '디시인사이드', 'enabled': True}
+                }
+                
+                # 정적 HTML 템플릿 렌더링
+                html = render_template('static.html', 
+                                     posts=posts, 
+                                     sites=sites,
+                                     last_updated=datetime.now().strftime('%Y-%m-%d %H:%M'))
+                
+                # HTML에서 상대 경로로 변경 (배포 환경에서 작동하도록)
+                html = html.replace('href=\"/static/', 'href=\"static/')
+                html = html.replace('src=\"/static/', 'src=\"static/')
+            
+            # HTML 파일 저장
             with open('index.html', 'w', encoding='utf-8') as f:
                 f.write(html)
-            print(f'Static HTML generated with {len(posts)} posts')
+            
+            # CSS와 JS 파일을 정적 파일로 복사
+            os.makedirs('static/css', exist_ok=True)
+            os.makedirs('static/js', exist_ok=True)
+            
+            if os.path.exists('app/static/css/style.css'):
+                shutil.copy2('app/static/css/style.css', 'static/css/style.css')
+            if os.path.exists('app/static/js/app.js'):
+                shutil.copy2('app/static/js/app.js', 'static/js/app.js')
+            
+            print(f'Static HTML generated using template with {len(posts)} posts')
+            print('Static files (CSS, JS) copied successfully')
         "
         
     - name: Commit and push updated files

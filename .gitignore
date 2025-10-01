@@ -85,6 +85,9 @@ logs/
 *.temp
 temp/
 
+# Output files
+output/
+
 # Development directories (optional - uncomment if you don't want to track these)
 # dev/
 # analyze/
