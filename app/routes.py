@@ -1,16 +1,41 @@
 from flask import Blueprint, render_template, jsonify, request
-from app.models import Post, db
+from app.models import Post, SiteVisit, db
 from app.crawlers.crawler_manager import CrawlerManager
 from config import Config
+from datetime import datetime
 
 main = Blueprint('main', __name__)
 
 @main.route('/')
 def index():
     """메인 페이지"""
+    # 방문자 수 증가
+    today = datetime.utcnow().date()
+    visit = SiteVisit.query.filter_by(visit_date=today).first()
+    if visit:
+        visit.visit_count += 1
+    else:
+        visit = SiteVisit(visit_date=today, visit_count=1)
+        db.session.add(visit)
+    
+    try:
+        db.session.commit()
+    except:
+        db.session.rollback()
+    
+    # 통계 계산
+    total_visitors = db.session.query(db.func.sum(SiteVisit.visit_count)).scalar() or 0
+    today_visitors = visit.visit_count if visit else 0
+    
     categories = Config.CATEGORIES
     sites = Config.SUPPORTED_SITES
-    return render_template('index.html', categories=categories, sites=sites)
+    
+    return render_template('index.html', 
+                         categories=categories, 
+                         sites=sites,
+                         total_visitors=total_visitors,
+                         today_visitors=today_visitors,
+                         last_updated=datetime.now().strftime('%Y-%m-%d %H:%M'))
 
 @main.route('/api/posts')
 def get_posts():
@@ -86,8 +111,14 @@ def generate_static():
             count = Post.query.filter(Post.site == site_key).count()
             site_stats[site_key] = count
         
+        # 방문자 통계
+        total_visitors = db.session.query(db.func.sum(SiteVisit.visit_count)).scalar() or 0
+        today = datetime.utcnow().date()
+        today_visit = SiteVisit.query.filter_by(visit_date=today).first()
+        today_visitors = today_visit.visit_count if today_visit else 0
+        
         # 정적 HTML 생성
-        html_content = generate_static_html(posts, site_stats)
+        html_content = generate_static_html(posts, site_stats, total_visitors, today_visitors)
         
         # 루트 디렉토리에 index.html 저장
         root_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -108,7 +139,7 @@ def generate_static():
             'message': f'정적 HTML 생성 오류: {str(e)}'
         }), 500
 
-def generate_static_html(posts, site_stats):
+def generate_static_html(posts, site_stats, total_visitors=0, today_visitors=0):
     """정적 HTML 생성 함수"""
     site_names = {
         'bobae': '보배',

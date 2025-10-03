@@ -65,9 +65,15 @@ jobs:
                 from datetime import timezone, timedelta
                 kst = timezone(timedelta(hours=9))
                 
+                # 방문자 통계 (정적 사이트용 기본값)
+                total_visitors = 0
+                today_visitors = 0
+                
                 html = render_template('static.html', 
                                      posts=posts, 
                                      sites=sites,
+                                     total_visitors=total_visitors,
+                                     today_visitors=today_visitors,
                                      last_updated=datetime.now(kst).strftime('%Y-%m-%d %H:%M'))
             
             with open('index.html', 'w', encoding='utf-8') as f:
