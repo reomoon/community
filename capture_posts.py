@@ -241,13 +241,25 @@ class CommunityScreenshotCapture:
                 
                 filepath = self.capture_dir / filename
                 
-                # 고품질 스크린샷 캡처 (full_page=False)
-                await page.screenshot(
-                    path=str(filepath),
-                    full_page=False,  # 현재 뷰포트만 캡처
-                    type='png',
-                    scale='device'  # 디바이스 스케일 팩터 적용
-                )
+                # 디시인사이드는 하단 136px 잘라서 캡처
+                if post.site == 'dcinside':
+                    # 디시인사이드: 하단 136px 제외하고 캡처
+                    crop_height = viewport_height - 136  # 915 - 136 = 779px
+                    await page.screenshot(
+                        path=str(filepath),
+                        full_page=False,
+                        type='png',
+                        scale='device',
+                        clip={'x': 0, 'y': 0, 'width': 412, 'height': crop_height}  # 하단 136px 자르기
+                    )
+                else:
+                    # 다른 사이트: 일반 캡처
+                    await page.screenshot(
+                        path=str(filepath),
+                        full_page=False,
+                        type='png',
+                        scale='device'
+                    )
                 
                 captured_files.append(str(filepath))
                 print(f"  ✅ 구간 {i+1}/{segments} 캡처: {filename}")
@@ -413,11 +425,11 @@ class CommunityScreenshotCapture:
                 # 전체 게시물 중에서 랜덤 선택
                 all_posts = Post.query.filter(Post.site == site).all()
                 
-                if len(all_posts) > 2:
-                    # 2개 이상 있으면 랜덤으로 2개 선택
-                    posts = random.sample(all_posts, 2)
+                if len(all_posts) > 5:
+                    # 5개 이상 있으면 랜덤으로 5개 선택
+                    posts = random.sample(all_posts, 5)
                 else:
-                    # 2개 미만이면 모든 게시물 선택
+                    # 5개 미만이면 모든 게시물 선택
                     posts = all_posts
                 
                 posts_by_site[site] = posts

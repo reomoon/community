@@ -25,6 +25,11 @@ class Config:
             'url': 'https://www.bobae.co.kr',
             'enabled': True
         },
+        'dcinside': {
+            'name': '디시인사이드',
+            'url': 'https://www.dcinside.com',
+            'enabled': True
+        },
         'ppomppu': {
             'name': '뽐뿌',
             'url': 'https://www.ppomppu.co.kr',
@@ -33,11 +38,6 @@ class Config:
         'fmkorea': {
             'name': '에펨코리아',
             'url': 'https://www.fmkorea.com',
-            'enabled': True
-        },
-        'dcinside': {
-            'name': '디시인사이드',
-            'url': 'https://www.dcinside.com',
             'enabled': True
         }
     }

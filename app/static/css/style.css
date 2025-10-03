@@ -123,8 +123,18 @@ body {
     margin-bottom: 20px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.1);
     display: flex;
-    gap: 30px;
+    flex-wrap: wrap;
+    gap: 25px;
     align-items: center;
+    justify-content: space-between;
+}
+
+.stats .stat-item:nth-child(4) {
+    flex-basis: 100%;
+    justify-content: center;
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 1px solid #e9ecef;
 }
 
 .stat-item {
@@ -373,8 +383,15 @@ body {
     }
     
     .stats {
-        flex-direction: column;
-        gap: 15px;
+        flex-direction: row;
+        gap: 10px;
+        justify-content: space-around;
+        font-size: 0.9em;
+    }
+    
+    .stat-item {
+        flex: 1;
+        text-align: center;
     }
     
     .posts-container {

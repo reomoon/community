@@ -48,9 +48,17 @@
 
         <!-- 통계 정보 -->
         <div class="stats" id="statsSection">
-            <div class="stat-item">
+            <!-- <div class="stat-item">
                 <i class="fas fa-list"></i>
                 <span>총 게시물: <strong id="totalPosts">{{ posts|length }}</strong></span>
+            </div> -->
+            <div class="stat-item">
+                <i class="fas fa-users"></i>
+                <span>총 방문자: <strong id="totalVisitors">{{ total_visitors or 0 }}</strong></span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-user-check"></i>
+                <span>오늘 방문자: <strong id="todayVisitors">{{ today_visitors or 0 }}</strong></span>
             </div>
             <div class="stat-item">
                 <i class="fas fa-clock"></i>

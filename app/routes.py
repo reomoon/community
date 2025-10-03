@@ -112,9 +112,9 @@ def generate_static_html(posts, site_stats):
     """정적 HTML 생성 함수"""
     site_names = {
         'bobae': '보배',
+        'dcinside': '디시',
         'ppomppu': '뽐뿌', 
-        'fmkorea': '에펨',
-        'dcinside': '디시'
+        'fmkorea': '에펨'
     }
     
     posts_html = ""
@@ -153,9 +153,9 @@ def generate_static_html(posts, site_stats):
         .post-card {{ background: white; border-radius: 10px; padding: 1rem; margin: 1rem 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
         .site-badge {{ padding: 4px 8px; border-radius: 4px; color: white; font-size: 0.9em; }}
         .bobae {{ background: #e74c3c; }}
+        .dcinside {{ background: #9b59b6; }}
         .ppomppu {{ background: #3498db; }}
         .fmkorea {{ background: #f39c12; }}
-        .dcinside {{ background: #9b59b6; }}
         .post-title a {{ text-decoration: none; color: #333; font-weight: bold; }}
         .post-title a:hover {{ color: #667eea; }}
         .post-meta {{ display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; font-size: 0.9em; color: #666; }}
