@@ -52,7 +52,15 @@ def get_posts():
     if site != 'all':
         query = query.filter(Post.site == site)
     
-    posts = query.order_by(Post.crawled_at.desc()).limit(limit).all()
+    # 사이트 우선순위: 보배(0) -> 디시(1) -> 뽐뿌(2) -> 에펨(3) 순으로 정렬
+    site_order = db.case([
+        (Post.site == 'bobae', 0),
+        (Post.site == 'dcinside', 1),
+        (Post.site == 'ppomppu', 2),
+        (Post.site == 'fmkorea', 3)
+    ], else_=4)
+    
+    posts = query.order_by(site_order, Post.crawled_at.desc()).limit(limit).all()
     
     return jsonify({
         'posts': [post.to_dict() for post in posts],
@@ -102,8 +110,15 @@ def generate_static():
     import os
     
     try:
-        # 최신 게시물 가져오기
-        posts = Post.query.order_by(Post.crawled_at.desc()).limit(50).all()
+        # 최신 게시물 가져오기 (사이트 우선순위 적용)
+        site_order = db.case([
+            (Post.site == 'bobae', 0),
+            (Post.site == 'dcinside', 1),
+            (Post.site == 'ppomppu', 2),
+            (Post.site == 'fmkorea', 3)
+        ], else_=4)
+        
+        posts = Post.query.order_by(site_order, Post.crawled_at.desc()).limit(50).all()
         
         # 사이트별 통계
         site_stats = {}
