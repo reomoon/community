@@ -80,23 +80,38 @@ jobs:
                 import os
                 
                 try:
-                    # 임시로 현실적인 방문자 수 사용 (나중에 실제 Analytics 연동 가능)
-                    import random
-                    from datetime import datetime
+                    # 토큰 테스트: 직접 값 넣어서 확인
+                    vercel_token = 'kvRod26jx5VVQoqMIAcRzLFy'  # 직접 토큰 입력
+                    # vercel_token = os.environ.get('VERCEL_TOKEN')  # 나중에 다시 사용
                     
-                    # 시드를 날짜 기반으로 설정해서 하루 동안은 같은 값 유지
-                    today = datetime.now().strftime('%Y%m%d')
-                    random.seed(int(today))
+                    print(f'토큰 확인: {vercel_token[:10]}...{vercel_token[-5:] if vercel_token else None}')
                     
-                    # 현실적인 범위의 임시 방문자 수
-                    today_visitors = random.randint(15, 45)  # 오늘 방문자: 15-45명
-                    total_visitors = random.randint(200, 800)  # 총 방문자: 200-800명
-                    
-                    print(f'임시 방문자 통계 - 오늘: {today_visitors}, 총: {total_visitors}')
-                    
-                    # TODO: 나중에 실제 Vercel Analytics API 연동
-                    # vercel_token = os.environ.get('VERCEL_TOKEN')
-                    # 실제 API 연동은 Vercel 공식 문서 확인 후 구현
+                    if vercel_token:
+                        headers = {
+                            'Authorization': f'Bearer {vercel_token}',
+                            'Content-Type': 'application/json'
+                        }
+                        
+                        # Vercel API로 프로젝트 목록 먼저 확인
+                        projects_response = requests.get(
+                            'https://api.vercel.com/v9/projects',
+                            headers=headers
+                        )
+                        
+                        print(f'프로젝트 API Status: {projects_response.status_code}')
+                        
+                        if projects_response.status_code == 200:
+                            projects_data = projects_response.json()
+                            print(f'프로젝트 목록: {projects_data}')
+                            
+                            # 임시 값 사용
+                            today_visitors = 28
+                            total_visitors = 342
+                        else:
+                            print(f'프로젝트 API 오류: {projects_response.text}')
+                            raise Exception(f'프로젝트 API 오류: {projects_response.status_code}')
+                    else:
+                        raise Exception('토큰이 없습니다')
                         
                 except Exception as e:
                     print(f'방문자 통계 생성 오류: {e}')
