@@ -73,9 +73,12 @@ jobs:
                 from datetime import timezone, timedelta
                 kst = timezone(timedelta(hours=9))
                 
-                # 방문자 통계 (정적 사이트용 기본값)
-                total_visitors = 0
-                today_visitors = 0
+                # 방문자 통계 가져오기
+                from app.models import SiteVisit
+                total_visitors = db.session.query(db.func.sum(SiteVisit.visit_count)).scalar() or 0
+                today = datetime.now(kst).date()
+                today_visit = SiteVisit.query.filter_by(visit_date=today).first()
+                today_visitors = today_visit.visit_count if today_visit else 0
                 
                 html = render_template('static.html', 
                                      posts=posts, 

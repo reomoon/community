@@ -18,15 +18,6 @@ class Post(db.Model):
     
     def __repr__(self):
         return f'<Post {self.title}>'
-
-class SiteVisit(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    visit_date = db.Column(db.Date, default=lambda: datetime.utcnow().date())
-    visit_count = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f'<SiteVisit {self.visit_date}: {self.visit_count}>'
     
     def to_dict(self):
         return {
@@ -42,3 +33,12 @@ class SiteVisit(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'crawled_at': self.crawled_at.isoformat() if self.crawled_at else None
         }
+
+class SiteVisit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    visit_date = db.Column(db.Date, default=lambda: datetime.utcnow().date())
+    visit_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<SiteVisit {self.visit_date}: {self.visit_count}>'
