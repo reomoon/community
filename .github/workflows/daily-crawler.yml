@@ -39,6 +39,8 @@ jobs:
         python -c "import sys; print(sys.path)"
         
     - name: Generate static HTML from crawled data
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       run: |
         python -c "
         import sys, os, shutil
@@ -73,12 +75,59 @@ jobs:
                 from datetime import timezone, timedelta
                 kst = timezone(timedelta(hours=9))
                 
-                # 방문자 통계 가져오기
-                from app.models import SiteVisit
-                total_visitors = db.session.query(db.func.sum(SiteVisit.visit_count)).scalar() or 0
-                today = datetime.now(kst).date()
-                today_visit = SiteVisit.query.filter_by(visit_date=today).first()
-                today_visitors = today_visit.visit_count if today_visit else 0
+                # Vercel Analytics API에서 실제 방문자 데이터 가져오기
+                import requests
+                import os
+                
+                try:
+                    # Vercel Analytics API 설정
+                    vercel_token = os.environ.get('VERCEL_TOKEN')
+                    project_id = 'prj_K9Y5eaxJ9J6MHcKHNFPiRkW3cgAg'  # 프로젝트 ID
+                    
+                    if vercel_token:
+                        headers = {
+                            'Authorization': f'Bearer {vercel_token}',
+                            'Content-Type': 'application/json'
+                        }
+                        
+                        # 오늘 방문자 수 (24시간)
+                        today_response = requests.get(
+                            f'https://api.vercel.com/v1/analytics/unique-visitors',
+                            headers=headers,
+                            params={
+                                'projectId': project_id,
+                                'period': '24h'
+                            }
+                        )
+                        
+                        # 총 방문자 수 (30일)
+                        total_response = requests.get(
+                            f'https://api.vercel.com/v1/analytics/unique-visitors', 
+                            headers=headers,
+                            params={
+                                'projectId': project_id,
+                                'period': '30d'
+                            }
+                        )
+                        
+                        if today_response.status_code == 200 and total_response.status_code == 200:
+                            today_data = today_response.json()
+                            total_data = total_response.json()
+                            
+                            today_visitors = today_data.get('uniqueVisitors', 0)
+                            total_visitors = total_data.get('uniqueVisitors', 0)
+                            
+                            print(f'Vercel Analytics - 오늘: {today_visitors}, 총: {total_visitors}')
+                        else:
+                            raise Exception(f'API 오류: {today_response.status_code}')
+                    else:
+                        raise Exception('VERCEL_TOKEN 없음')
+                        
+                except Exception as e:
+                    print(f'Vercel Analytics API 오류: {e}')
+                    # fallback: 기본값 사용
+                    total_visitors = 0
+                    today_visitors = 0
                 
                 html = render_template('static.html', 
                                      posts=posts, 
