@@ -394,6 +394,14 @@ body {
         text-align: center;
     }
     
+    .stats .stat-item.last-update {
+        flex-basis: 100%;
+        justify-content: center;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #dee2e6;
+    }
+    
     .posts-container {
         grid-template-columns: 1fr;
     }

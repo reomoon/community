@@ -54,15 +54,13 @@ jobs:
             with app.test_request_context():
                 from app.models import db
                 
-                # 사이트 우선순위: 보배(0) -> 디시(1) -> 뽐뿌(2) -> 에펨(3) 순으로 정렬
-                site_order = db.case([
-                    (Post.site == 'bobae', 0),
-                    (Post.site == 'dcinside', 1),
-                    (Post.site == 'ppomppu', 2),
-                    (Post.site == 'fmkorea', 3)
-                ], else_=4)
+                # 모든 게시물 가져오기
+                all_posts = Post.query.order_by(Post.crawled_at.desc()).all()
                 
-                posts = Post.query.order_by(site_order, Post.crawled_at.desc()).limit(50).all()
+                # Python으로 사이트 우선순위 정렬: 보배 -> 디시 -> 뽐뿌 -> 에펨 순
+                site_priority = {'bobae': 0, 'dcinside': 1, 'ppomppu': 2, 'fmkorea': 3}
+                
+                posts = sorted(all_posts, key=lambda x: (site_priority.get(x.site, 99), -x.crawled_at.timestamp()))[:50]
                 
                 sites = {
                     'bobae': {'name': '보배드림', 'enabled': True},
