@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-모바일 캡처 크롤링 전용 스크립트 (페이지 끝까지)
+GitHub Actions용 크롤링 전용 스크립트
 """
 
 import json
@@ -11,16 +11,16 @@ from datetime import datetime
 # 상위 디렉토리를 Python 경로에 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.crawlers.mobile_crawler import (
-    MobilePpomppuCrawler, 
-    MobileBobaeCrawler, 
-    MobileDcinsideCrawler, 
-    MobileFmkoreaCrawler
+from app.crawlers.site_crawlers import (
+    PpomppuCrawler, 
+    BobaeCrawler, 
+    DcinsideCrawler, 
+    FmkoreaCrawler
 )
 
 def crawl_all_sites():
-    """모든 사이트 모바일 크롤링 실행 (페이지 끝까지)"""
-    print(f"[{datetime.now()}] 📱 모바일 캡처 크롤링 시작...")
+    """모든 사이트 크롤링 실행"""
+    print(f"[{datetime.now()}] 📱 커뮤니티 크롤링 시작...")
     
     # Flask 앱 초기화 (데이터베이스 저장용)
     try:
@@ -33,12 +33,12 @@ def crawl_all_sites():
         print(f"Flask 앱 초기화 실패: {e} - JSON 파일로만 저장됩니다")
         use_database = False
     
-    # 모바일 크롤러들 초기화 (페이지 끝까지 크롤링)
+    # HTTP 크롤러들 초기화 (안정적인 크롤링)
     crawlers = {
-        'bobae': MobileBobaeCrawler(),
-        'dcinside': MobileDcinsideCrawler(),
-        'ppomppu': MobilePpomppuCrawler(),
-        'fmkorea': MobileFmkoreaCrawler()
+        'bobae': BobaeCrawler(),
+        'dcinside': DcinsideCrawler(),
+        'ppomppu': PpomppuCrawler(),
+        'fmkorea': FmkoreaCrawler()
     }
     
     all_posts = []
@@ -63,9 +63,9 @@ def crawl_all_sites():
             import traceback
             print(f"상세 오류 정보:\n{traceback.format_exc()}")
             
-            # 에펨코리아 크롤링 실패 시 특별 처리
+            # 크롤링 실패 시 특별 처리
             if site_name == 'fmkorea':
-                print("에펨코리아 크롤링 실패 - GitHub Actions 환경에서 접근 제한 가능성")
+                print("에펨코리아 크롤링 실패 - 봇 차단 또는 네트워크 문제 가능성")
             
             continue  # 다음 사이트 계속 진행
     
