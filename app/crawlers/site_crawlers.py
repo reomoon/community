@@ -367,114 +367,159 @@ class BobaeCrawler(BaseCrawler):
         self.base_url = 'https://www.bobaedream.co.kr'
     
     def crawl_popular_posts(self) -> List[Dict]:
-        """보배드림 인기 게시물 크롤링"""
+        """보배드림 인기 게시물 크롤링 (베스트 + 실시간 베스트)"""
         posts = []
         
-        try:
-            # 베스트 게시판
-            url = f"{self.base_url}/board/bulletin/list.php?code=best&vdate=w"
-            
-            response = self.session.get(url, timeout=10)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # .pl14 클래스로 게시물 찾기
-            post_cells = soup.select('.pl14')
-            
-            post_list = []
-            for cell in post_cells:  # 모든 게시물 처리
-                try:
-                    title_link = cell.select_one('a')
-                    if not title_link:
+        # 두 개의 URL에서 크롤링하여 총 20개 게시물 수집
+        urls = [
+            # 기존 베스트 게시판 (10개)
+            f"{self.base_url}/board/bulletin/list.php?code=best&vdate=w",
+            # 실시간 베스트 게시판 (10개 추가)
+            f"{self.base_url}/list?code=best"
+        ]
+        
+        all_post_list = []
+        
+        for url_idx, url in enumerate(urls):
+            try:
+                print(f"보배드림 크롤링 {url_idx + 1}/2: {url}")
+                
+                response = self.session.get(url, timeout=10)
+                response.raise_for_status()
+                
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # URL에 따라 다른 선택자 사용
+                if "board/bulletin" in url:
+                    # 기존 베스트 게시판 (.pl14 클래스)
+                    post_cells = soup.select('.pl14')
+                else:
+                    # 실시간 베스트 게시판 (다른 구조 시도)
+                    post_cells = soup.select('.pl14') or soup.select('.listSub a') or soup.select('.list-table td a') or soup.select('.board-list td a') or soup.select('td a')
+                
+                print(f"보배드림 게시물 {len(post_cells)}개 발견")
+                
+                # 각 URL에서 최대 10개씩만 처리
+                current_url_posts = []
+                for cell in post_cells[:20]:  # 처음 20개만 처리하여 10개 선별
+                    try:
+                        # cell이 a 태그인지 확인
+                        if cell.name == 'a':
+                            title_link = cell
+                            title = cell.get_text(strip=True)
+                        else:
+                            title_link = cell.select_one('a')
+                            if not title_link:
+                                continue
+                            title = title_link.get_text(strip=True)
+                        
+                        if not title or len(title) < 5:
+                            continue
+                        
+                        # 제외 단어 필터링
+                        if self.should_exclude_post(title):
+                            print(f"보배드림 게시물 제외: {title[:30]}...")
+                            continue
+                        
+                        # URL 구성
+                        href = title_link.get('href', '')
+                        if href.startswith('/'):
+                            post_url = self.base_url + href
+                        else:
+                            post_url = href
+                        
+                        # 기본값 설정
+                        author = '보배드림'
+                        views = 0
+                        likes = 0
+                        comments = 0
+                        
+                        # 부모 tr에서 다른 정보 찾기 (첫 번째 URL의 경우)
+                        if "board/bulletin" in url:
+                            parent_tr = cell.find_parent('tr')
+                            if parent_tr:
+                                # 부모 tr에서 정보 추출
+                                tds = parent_tr.find_all('td')
+                                
+                                # TR 구조: [카테고리, 제목+댓글, 작성자, 시간, 추천수, 조회수]
+                                
+                                # 작성자 (TD[2])
+                                author = tds[2].get_text(strip=True) if len(tds) > 2 else '보배드림'
+                                
+                                # 조회수 (TD[5])
+                                if len(tds) > 5:
+                                    views_text = tds[5].get_text(strip=True)
+                                    if views_text.isdigit():
+                                        views = int(views_text)
+                                
+                                # 추천수 (TD[4])
+                                if len(tds) > 4:
+                                    likes_text = tds[4].get_text(strip=True)
+                                    if likes_text.isdigit():
+                                        likes = int(likes_text)
+                                
+                                # 댓글수 (제목에서 (숫자) 형태로 추출)
+                                full_title = tds[1].get_text(strip=True) if len(tds) > 1 else title
+                                
+                                # (숫자) 패턴으로 댓글수 추출
+                                comment_match = re.search(r'\((\d+)\)', full_title)
+                                if comment_match:
+                                    comments = int(comment_match.group(1))
+                                    # 제목에서 댓글수 제거
+                                    title = re.sub(r'\(\d+\)', '', full_title).strip()
+                        else:
+                            # 실시간 베스트의 경우 기본값 사용
+                            # 댓글수만 제목에서 추출 시도
+                            comment_match = re.search(r'\((\d+)\)', title)
+                            if comment_match:
+                                comments = int(comment_match.group(1))
+                                title = re.sub(r'\(\d+\)', '', title).strip()
+                        
+                        # 인기도 점수 계산 (조회수 + 추천수*2 + 댓글수*3)
+                        popularity_score = views + (likes * 2) + (comments * 3)
+                        
+                        post_data = {
+                            'title': title,
+                            'url': post_url,
+                            'site': self.site_name,
+                            'category': '인기',
+                            'author': author,
+                            'views': views,
+                            'likes': likes,
+                            'comments': comments,
+                            'popularity_score': popularity_score
+                        }
+                        
+                        current_url_posts.append(post_data)
+                        
+                    except Exception as e:
+                        print(f"보배드림 게시물 파싱 오류: {e}")
                         continue
-                    
-                    title = title_link.get_text(strip=True)
-                    if not title or len(title) < 5:
-                        continue
-                    
-                    # 제외 단어 필터링
-                    if self.should_exclude_post(title):
-                        print(f"보배드림 게시물 제외: {title[:30]}...")
-                        continue
-                    
-                    # URL 구성
-                    href = title_link.get('href', '')
-                    if href.startswith('/'):
-                        post_url = self.base_url + href
-                    else:
-                        post_url = href
-                    
-                    # 부모 tr에서 다른 정보 찾기
-                    parent_tr = cell.find_parent('tr')
-                    if not parent_tr:
-                        continue
-                    
-                    # 부모 tr에서 정보 추출
-                    tds = parent_tr.find_all('td')
-                    
-                    # TR 구조: [카테고리, 제목+댓글, 작성자, 시간, 추천수, 조회수]
-                    
-                    # 작성자 (TD[2])
-                    author = tds[2].get_text(strip=True) if len(tds) > 2 else '보배드림'
-                    
-                    # 조회수 (TD[5])
-                    views = 0
-                    if len(tds) > 5:
-                        views_text = tds[5].get_text(strip=True)
-                        if views_text.isdigit():
-                            views = int(views_text)
-                    
-                    # 추천수 (TD[4])
-                    likes = 0
-                    if len(tds) > 4:
-                        likes_text = tds[4].get_text(strip=True)
-                        if likes_text.isdigit():
-                            likes = int(likes_text)
-                    
-                    # 댓글수 (제목에서 (숫자) 형태로 추출)
-                    comments = 0
-                    full_title = tds[1].get_text(strip=True) if len(tds) > 1 else title
-                    
-                    # (숫자) 패턴으로 댓글수 추출
-                    comment_match = re.search(r'\((\d+)\)', full_title)
-                    if comment_match:
-                        comments = int(comment_match.group(1))
-                        # 제목에서 댓글수 제거
-                        title = re.sub(r'\(\d+\)', '', full_title).strip()
-                    else:
-                        title = full_title
-                    
-                    # 인기도 점수 계산 (조회수 + 추천수*2 + 댓글수*3)
-                    popularity_score = views + (likes * 2) + (comments * 3)
-                    
-                    post_data = {
-                        'title': title,
-                        'url': post_url,
-                        'site': self.site_name,
-                        'category': '인기',
-                        'author': author,
-                        'views': views,
-                        'likes': likes,
-                        'comments': comments,
-                        'popularity_score': popularity_score
-                    }
-                    
-                    post_list.append(post_data)
-                    
-                except Exception as e:
-                    print(f"보배드림 게시물 파싱 오류: {e}")
-                    continue
-            
-            # 인기도 순으로 정렬하고 상위 10개만 선택
-            post_list.sort(key=lambda x: x['popularity_score'], reverse=True)
-            posts = post_list[:10]
-            
-            for post in posts:
-                print(f"보배드림 게시물 추가: {post['title'][:50]}... (조회:{post['views']}, 추천:{post['likes']}, 댓글:{post['comments']})")
-                    
-        except Exception as e:
-            print(f"보배드림 크롤링 오류: {e}")
+                
+                # 현재 URL에서 가져온 게시물들을 인기도순으로 정렬하고 상위 10개만 선택
+                current_url_posts.sort(key=lambda x: x['popularity_score'], reverse=True)
+                selected_posts = current_url_posts[:10]
+                
+                print(f"보배드림 URL {url_idx + 1}에서 {len(selected_posts)}개 게시물 선택")
+                all_post_list.extend(selected_posts)
+                
+            except Exception as e:
+                print(f"보배드림 크롤링 오류 (URL {url_idx + 1}): {e}")
+                continue
+        
+        # 중복 제거 (URL 기준) - 각 URL에서 이미 10개씩 선택했으므로 최대 20개
+        seen_urls = set()
+        unique_posts = []
+        for post in all_post_list:
+            if post['url'] not in seen_urls:
+                seen_urls.add(post['url'])
+                unique_posts.append(post)
+        
+        # 최종적으로 20개 또는 중복 제거된 모든 게시물 반환
+        posts = unique_posts
+        
+        for post in posts:
+            print(f"보배드림 게시물 추가: {post['title'][:50]}... (조회:{post['views']}, 추천:{post['likes']}, 댓글:{post['comments']})")
         
         return posts
 

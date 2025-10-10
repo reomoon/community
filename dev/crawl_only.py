@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GitHub Actions용 크롤링 전용 스크립트
+모바일 캡처 크롤링 전용 스크립트 (페이지 끝까지)
 """
 
 import json
@@ -11,12 +11,16 @@ from datetime import datetime
 # 상위 디렉토리를 Python 경로에 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.crawlers.crawler_manager import CrawlerManager
-from app.crawlers.site_crawlers import PpomppuCrawler, FmkoreaCrawler, BobaeCrawler, DcinsideCrawler
+from app.crawlers.mobile_crawler import (
+    MobilePpomppuCrawler, 
+    MobileBobaeCrawler, 
+    MobileDcinsideCrawler, 
+    MobileFmkoreaCrawler
+)
 
 def crawl_all_sites():
-    """모든 사이트 크롤링 실행"""
-    print(f"[{datetime.now()}] 크롤링 시작...")
+    """모든 사이트 모바일 크롤링 실행 (페이지 끝까지)"""
+    print(f"[{datetime.now()}] 📱 모바일 캡처 크롤링 시작...")
     
     # Flask 앱 초기화 (데이터베이스 저장용)
     try:
@@ -29,12 +33,12 @@ def crawl_all_sites():
         print(f"Flask 앱 초기화 실패: {e} - JSON 파일로만 저장됩니다")
         use_database = False
     
-    # 크롤러들 초기화 (보배, 디시, 뽐뿌, 에펨코리아 순)
+    # 모바일 크롤러들 초기화 (페이지 끝까지 크롤링)
     crawlers = {
-        'bobae': BobaeCrawler(),
-        'dcinside': DcinsideCrawler(),
-        'ppomppu': PpomppuCrawler(),
-        'fmkorea': FmkoreaCrawler()
+        'bobae': MobileBobaeCrawler(),
+        'dcinside': MobileDcinsideCrawler(),
+        'ppomppu': MobilePpomppuCrawler(),
+        'fmkorea': MobileFmkoreaCrawler()
     }
     
     all_posts = []
