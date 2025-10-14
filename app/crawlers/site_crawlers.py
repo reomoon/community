@@ -739,38 +739,54 @@ class RuliwebCrawler(BaseCrawler):
                     likes = 0
                     comments = 0
                     author = '루리웹'
+                    author_found = False
                     
-                    # 각 셀에서 정보 추출
-                    for i, cell in enumerate(cells):
-                        cell_text = cell.get_text(strip=True)
-                        
-                        # 작성자 (3번째 셀, 인덱스 2)
-                        if i == 2:
-                            nick_elem = cell.find('span', class_='nick')
+                    # 루리웹 테이블 구조에 따른 정확한 파싱
+                    # 셀[0]:ID, 셀[1]:제목, 셀[2]:작성자, 셀[3]:추천수, 셀[4]:조회수, 셀[5]:시간
+                    try:
+                        if len(cells) >= 6:
+                            # 작성자 (셀[2])
+                            nick_elem = cells[2].find('span', class_='nick')
                             if nick_elem:
                                 author = nick_elem.get_text(strip=True)
-                            elif cell_text and len(cell_text) < 20:  # 작성자명은 보통 짧음
-                                author = cell_text
-                        
-                        # 추천수 (5번째 셀, 인덱스 4)
-                        elif i == 4:
-                            try:
-                                # 숫자만 추출
-                                like_numbers = re.findall(r'\d+', cell_text)
-                                if like_numbers:
-                                    likes = int(like_numbers[0])
-                            except:
-                                likes = 0
-                        
-                        # 조회수 (6번째 셀, 인덱스 5)
-                        elif i == 5:
-                            try:
-                                # 숫자만 추출
-                                view_numbers = re.findall(r'\d+', cell_text)
-                                if view_numbers:
-                                    views = int(view_numbers[0])
-                            except:
-                                views = 0
+                            
+                            # 추천수 (셀[3])
+                            likes_text = cells[3].get_text(strip=True)
+                            if likes_text.isdigit():
+                                likes = int(likes_text)
+                            
+                            # 조회수 (셀[4])
+                            views_text = cells[4].get_text(strip=True)
+                            if views_text.isdigit():
+                                views = int(views_text)
+                                
+                        elif len(cells) >= 4:
+                            # 셀이 적은 경우 fallback 로직
+                            for i, cell in enumerate(cells):
+                                cell_text = cell.get_text(strip=True)
+                                
+                                # 작성자 찾기
+                                if i <= 2:
+                                    nick_elem = cell.find('span', class_='nick')
+                                    if nick_elem and not author_found:
+                                        author = nick_elem.get_text(strip=True)
+                                        author_found = True
+                                
+                                # 숫자 셀 처리 - ID 제외하고 처리
+                                if cell_text.isdigit() and i > 0:  # 첫번째 셀(ID) 제외
+                                    cell_num = int(cell_text)
+                                    
+                                    if cell_num > 1000 and views == 0:
+                                        views = cell_num
+                                    elif cell_num < 1000 and likes == 0:
+                                        likes = cell_num
+                    except Exception as e:
+                        print(f"루리웹 셀 파싱 오류: {e}")
+                    
+                    # 작성자가 없으면 기본값
+                    author_found = False
+                    if not author:
+                        author = '루리웹'
                     
                     # 댓글수는 제목에서 추출 시도 - 여러 패턴 시도
                     comment_patterns = [
