@@ -55,8 +55,8 @@ def get_posts():
     # 모든 게시물 가져와서 Python으로 정렬
     all_posts = query.order_by(Post.crawled_at.desc()).all()
     
-    # 사이트 우선순위: 보배 -> 디시 -> 뽐뿌 -> 에펨 순
-    site_priority = {'bobae': 0, 'dcinside': 1, 'ppomppu': 2, 'fmkorea': 3}
+    # 사이트 우선순위: 보배 -> 루리웹 -> 디시 -> 뽐뿌 -> 에펨 순
+    site_priority = {'bobae': 0, 'ruliweb': 1, 'dcinside': 2, 'ppomppu': 3, 'fmkorea': 4}
     
     posts = sorted(all_posts, key=lambda x: (site_priority.get(x.site, 99), -x.crawled_at.timestamp()))[:limit]
     

@@ -659,3 +659,163 @@ class DcinsideCrawler(BaseCrawler):
             print(f"디시인사이드 크롤링 오류: {e}")
         
         return posts
+
+
+class RuliwebCrawler(BaseCrawler):
+    """루리웹 크롤러 (유머게시판 베스트)"""
+    
+    def __init__(self):
+        super().__init__('ruliweb')
+        self.base_url = 'https://bbs.ruliweb.com'
+    
+    def crawl_popular_posts(self) -> List[Dict]:
+        """루리웹 유머 베스트 게시물 크롤링"""
+        posts = []
+        
+        try:
+            url = f"{self.base_url}/best/humor_only?orderby=recommend&range=24h"
+            
+            response = self.session.get(url, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # 게시물 목록 파싱 (루리웹 베스트 게시판 구조)
+            post_items = soup.select('tr.table_body')
+            
+            # 대체 선택자들 시도
+            if not post_items:
+                post_items = soup.select('.board_list_wrapper tr')
+            if not post_items:
+                post_items = soup.select('tbody tr')
+            if not post_items:
+                post_items = soup.select('table tr')
+            
+            post_list = []
+            for row in post_items[:20]:  # 처음 20개만 처리하여 10개 선별
+                try:
+                    # 테이블 구조에서 각 셀 찾기
+                    cells = row.find_all('td')
+                    if len(cells) < 4:  # 충분한 셀이 없으면 스킵
+                        continue
+                    
+                    # 제목 셀에서 링크 찾기 (보통 2번째 또는 3번째 셀)
+                    title_cell = None
+                    title_link = None
+                    
+                    for cell in cells:
+                        link = cell.find('a', class_='deco')
+                        if not link:
+                            link = cell.find('a')
+                        if link and link.get_text(strip=True) and len(link.get_text(strip=True)) > 5:
+                            title_cell = cell
+                            title_link = link
+                            break
+                    
+                    if not title_link:
+                        continue
+                    
+                    title = title_link.get_text(strip=True)
+                    if not title or len(title) < 5:
+                        continue
+                    
+                    # 제외 단어 필터링
+                    if self.should_exclude_post(title):
+                        print(f"루리웹 게시물 제외: {title[:30]}...")
+                        continue
+                    
+                    # URL 구성
+                    href = title_link.get('href', '')
+                    if href.startswith('/'):
+                        post_url = f"https://bbs.ruliweb.com{href}"
+                    elif href.startswith('http'):
+                        post_url = href
+                    else:
+                        post_url = f"https://bbs.ruliweb.com/{href}"
+                    
+                    # 루리웹 테이블 구조: [분류, 제목, 작성자, 날짜, 추천, 조회]
+                    # 기본값 설정
+                    views = 0
+                    likes = 0
+                    comments = 0
+                    author = '루리웹'
+                    
+                    # 각 셀에서 정보 추출
+                    for i, cell in enumerate(cells):
+                        cell_text = cell.get_text(strip=True)
+                        
+                        # 작성자 (3번째 셀, 인덱스 2)
+                        if i == 2:
+                            nick_elem = cell.find('span', class_='nick')
+                            if nick_elem:
+                                author = nick_elem.get_text(strip=True)
+                            elif cell_text and len(cell_text) < 20:  # 작성자명은 보통 짧음
+                                author = cell_text
+                        
+                        # 추천수 (5번째 셀, 인덱스 4)
+                        elif i == 4:
+                            try:
+                                # 숫자만 추출
+                                like_numbers = re.findall(r'\d+', cell_text)
+                                if like_numbers:
+                                    likes = int(like_numbers[0])
+                            except:
+                                likes = 0
+                        
+                        # 조회수 (6번째 셀, 인덱스 5)
+                        elif i == 5:
+                            try:
+                                # 숫자만 추출
+                                view_numbers = re.findall(r'\d+', cell_text)
+                                if view_numbers:
+                                    views = int(view_numbers[0])
+                            except:
+                                views = 0
+                    
+                    # 댓글수는 제목에서 추출 시도 - 여러 패턴 시도
+                    comment_patterns = [
+                        r'\((\d+)\)',  # (숫자) 패턴
+                        r'\[(\d+)\]',  # [숫자] 패턴  
+                        r'(\d+)$'      # 끝에 숫자
+                    ]
+                    
+                    for pattern in comment_patterns:
+                        comment_match = re.search(pattern, title)
+                        if comment_match:
+                            comments = int(comment_match.group(1))
+                            # 제목에서 댓글수 제거
+                            title = re.sub(pattern, '', title).strip()
+                            break
+                    
+                    # 인기도 점수 계산 (조회수 + 추천수*2 + 댓글수*3)
+                    popularity_score = views + (likes * 2) + (comments * 3)
+                    
+                    post_data = {
+                        'title': title,
+                        'url': post_url,
+                        'site': self.site_name,
+                        'category': '인기',
+                        'author': author,
+                        'views': views,
+                        'likes': likes,
+                        'comments': comments,
+                        'popularity_score': popularity_score
+                    }
+                    
+                    post_list.append(post_data)
+                    
+                except Exception as e:
+                    print(f"루리웹 게시물 파싱 오류: {e}")
+                    continue
+            
+            # 인기도 순으로 정렬하고 상위 10개만 선택
+            post_list.sort(key=lambda x: x['popularity_score'], reverse=True)
+            posts = post_list[:10]
+            
+            for post in posts:
+                print(f"루리웹 게시물 추가: {post['title'][:50]}... (조회:{post['views']}, 추천:{post['likes']}, 댓글:{post['comments']})")
+                
+        except Exception as e:
+            print(f"루리웹 크롤링 오류: {e}")
+        
+        return posts

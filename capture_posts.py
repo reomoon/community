@@ -27,17 +27,22 @@ class CommunityScreenshotCapture:
         # 캡처 디렉토리 생성
         self.capture_dir.mkdir(parents=True, exist_ok=True)
         
-        # 사이트별 설정 - 뽐뿌 제외, 속도 최적화
+        # 사이트별 설정 - 뽐뿌 제외, 루리웹 포함, 속도 최적화
         self.site_configs = {
-            'fmkorea': {
-                'name': '에펨코리아',
-                'wait_selectors': ['.xe_content'],  # 필수 요소만
-                'scroll_delay': 1  # 3초 → 1초
-            },
             'bobae': {
                 'name': '보배드림',
                 'wait_selectors': ['.bodys'],  # 필수 요소만
                 'scroll_delay': 1  # 2초 → 1초
+            },
+            'ruliweb': {
+                'name': '루리웹',
+                'wait_selectors': ['.board_main_view', '.view_content'],  # 루리웹 본문 요소
+                'scroll_delay': 1  # 1초
+            },
+            'fmkorea': {
+                'name': '에펨코리아',
+                'wait_selectors': ['.xe_content'],  # 필수 요소만
+                'scroll_delay': 1  # 3초 → 1초
             },
             'dcinside': {
                 'name': '디시인사이드',
@@ -420,8 +425,8 @@ class CommunityScreenshotCapture:
         posts_by_site = {}
         
         with app.app_context():
-            # 뽐뿌 제외하고 3개 사이트만 캡처
-            for site in ['bobae', 'dcinside', 'fmkorea']:
+            # 뽐뿌 제외하고 4개 사이트 캡처 (루리웹 포함)
+            for site in ['bobae', 'ruliweb', 'dcinside', 'fmkorea']:
                 # 전체 게시물 중에서 랜덤 선택
                 all_posts = Post.query.filter(Post.site == site).all()
                 

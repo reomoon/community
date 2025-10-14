@@ -25,6 +25,11 @@ class Config:
             'url': 'https://www.bobae.co.kr',
             'enabled': True
         },
+        'ruliweb': {
+            'name': '루리웹',
+            'url': 'https://bbs.ruliweb.com/best/humor_only?orderby=recommend&range=24h',
+            'enabled': True
+        },
         'dcinside': {
             'name': '디시인사이드',
             'url': 'https://www.dcinside.com',

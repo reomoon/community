@@ -14,6 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.crawlers.site_crawlers import (
     PpomppuCrawler, 
     BobaeCrawler, 
+    RuliwebCrawler,
     DcinsideCrawler, 
     FmkoreaCrawler
 )
@@ -36,6 +37,7 @@ def crawl_all_sites():
     # HTTP 크롤러들 초기화 (안정적인 크롤링)
     crawlers = {
         'bobae': BobaeCrawler(),
+        'ruliweb': RuliwebCrawler(),
         'dcinside': DcinsideCrawler(),
         'ppomppu': PpomppuCrawler(),
         'fmkorea': FmkoreaCrawler()
