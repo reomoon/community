@@ -57,13 +57,14 @@ jobs:
                 # 모든 게시물 가져오기
                 all_posts = Post.query.order_by(Post.crawled_at.desc()).all()
                 
-                # Python으로 사이트 우선순위 정렬: 보배 -> 디시 -> 뽐뿌 -> 에펨 순
-                site_priority = {'bobae': 0, 'dcinside': 1, 'ppomppu': 2, 'fmkorea': 3}
+                # Python으로 사이트 우선순위 정렬: 보배 -> 루리웹 -> 디시 -> 뽐뿌 -> 에펨 순
+                site_priority = {'bobae': 0, 'ruliweb': 1, 'dcinside': 2, 'ppomppu': 3, 'fmkorea': 4}
                 
                 posts = sorted(all_posts, key=lambda x: (site_priority.get(x.site, 99), -x.crawled_at.timestamp()))[:50]
                 
                 sites = {
                     'bobae': {'name': '보배드림', 'enabled': True},
+                    'ruliweb': {'name': '루리웹', 'enabled': True},
                     'dcinside': {'name': '디시인사이드', 'enabled': True},
                     'ppomppu': {'name': '뽐뿌', 'enabled': True},
                     'fmkorea': {'name': '에펨코리아', 'enabled': True}
