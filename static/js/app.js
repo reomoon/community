@@ -185,6 +185,7 @@ class CommunityAggregator {
         
         const siteNames = {
             'bobae': '보배',
+            'ruliweb': '루리',
             'ppomppu': '뽐뿌',
             'fmkorea': '에펨',
             'dcinside': '디시'

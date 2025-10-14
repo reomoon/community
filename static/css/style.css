@@ -207,6 +207,11 @@ body {
     color: white;
 }
 
+.site-badge.ruliweb {
+    background: #ff9f43;
+    color: white;
+}
+
 .site-badge.ppomppu {
     background: #4ecdc4;
     color: white;
