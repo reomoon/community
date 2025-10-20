@@ -22,10 +22,9 @@ class CommunityScreenshotCapture:
     def __init__(self):
         self.base_dir = Path("capture")
         self.today = datetime.now().strftime("%Y-%m-%d")
-        self.capture_dir = self.base_dir / self.today
-        
-        # 캡처 디렉토리 생성
-        self.capture_dir.mkdir(parents=True, exist_ok=True)
+        # 날짜별 기본 디렉토리 (사이트별 하위 폴더는 나중에 생성)
+        self.date_dir = self.base_dir / self.today
+        self.date_dir.mkdir(parents=True, exist_ok=True)
         
         # 사이트별 설정 - 뽐뿌 제외, 루리웹 포함, 속도 최적화
         self.site_configs = {
@@ -50,6 +49,112 @@ class CommunityScreenshotCapture:
                 'scroll_delay': 1  # 2초 → 1초
             }
         }
+    
+    async def apply_nickname_blur(self, page, site):
+        """댓글 닉네임에 모자이크(블러) 처리 적용"""
+        try:
+            # 사이트별 닉네임 셀렉터 (더 많은 셀렉터 추가)
+            nickname_selectors = {
+                'bobae': [
+                    '.nick', '.name', '.writer', '.nickname',
+                    '.re_name', '.comment_writer', '.cmt_nickname',
+                    '.ub-writer', '.writer-name', '.user-name',
+                    'span.nick', 'span.name', 'span.writer',
+                    'td.name', 'td.nick', 'div.writer',
+                    '.member_info', '.writer_info', '.user_info',
+                    'strong.name', 'strong.nick', 'b.name'
+                ],
+                'ruliweb': [
+                    '.nick', '.user_nick', '.comment_nick',
+                    '.writer', '.author', '.user_id',
+                    'span.nick', '.member_nick', '.reply_nick'
+                ],
+                'fmkorea': [
+                    '.nick', '.nickname', '.username', '.user_name',
+                    '.member', '.writer', '.author_nick', '.author',
+                    'span.nickname', 'span.member', '.member_nick',
+                    '.xe_content .nick', 'strong.nick', 'b.nick',
+                    '.comment_nick', '.reply_nick'
+                ],
+                'dcinside': [
+                    '.nickname', '.gall_writer', '.writer',
+                    '.nick', '.user_nick', '.reply_name',
+                    'span.nickname', '.writer_nickname'
+                ]
+            }
+            
+            selectors = nickname_selectors.get(site, ['.nick', '.nickname', '.writer'])
+            
+            # JavaScript로 모자이크 처리
+            await page.evaluate(f"""
+                const selectors = {selectors};
+                const processedElements = new Set();
+                const site = '{site}';
+                
+                // 기본 셀렉터 처리
+                selectors.forEach(selector => {{
+                    const elements = document.querySelectorAll(selector);
+                    elements.forEach(el => {{
+                        if (processedElements.has(el)) return;
+                        processedElements.add(el);
+                        
+                        // 닉네임 요소에 블러 효과 적용
+                        el.style.filter = 'blur(8px)';
+                        el.style.userSelect = 'none';
+                        el.style.pointerEvents = 'none';
+                        el.style.color = 'transparent';
+                        el.style.textShadow = '0 0 8px rgba(0,0,0,0.5)';
+                        el.style.background = 'rgba(200,200,200,0.3)';
+                        el.style.borderRadius = '4px';
+                        el.style.padding = '2px 6px';
+                    }});
+                }});
+                
+                // 보배드림 전용 처리
+                if (site === 'bobae') {{
+                    // 댓글 영역 찾기
+                    const commentSections = document.querySelectorAll('.re, .reply, .comment, [class*="cmt"], [class*="reply"]');
+                    
+                    commentSections.forEach(section => {{
+                        // 테이블 행에서 닉네임 찾기
+                        const rows = section.querySelectorAll('tr, div, li');
+                        rows.forEach(row => {{
+                            // 행 내의 모든 텍스트 요소
+                            const textElements = row.querySelectorAll('td, span, div, strong, b, a');
+                            
+                            textElements.forEach((el, index) => {{
+                                if (processedElements.has(el)) return;
+                                
+                                const text = el.textContent.trim();
+                                
+                                // 닉네임 패턴: 짧은 텍스트 (2-10자)
+                                if (text.length >= 2 && text.length <= 10) {{
+                                    // 날짜/시간 형식 제외
+                                    if (!/^\d{{2,4}}[-./]\d{{1,2}}[-./]\d{{1,2}}/.test(text) &&
+                                        !/^\d{{1,2}}:\d{{2}}/.test(text) &&
+                                        !/^답글|^댓글|^RE:|^Reply/i.test(text) &&
+                                        !/^\d+$/.test(text)) {{
+                                        
+                                        processedElements.add(el);
+                                        el.style.filter = 'blur(8px)';
+                                        el.style.color = 'transparent';
+                                        el.style.textShadow = '0 0 8px rgba(0,0,0,0.5)';
+                                        el.style.background = 'rgba(200,200,200,0.3)';
+                                        el.style.borderRadius = '4px';
+                                        el.style.padding = '2px 6px';
+                                    }}
+                                }}
+                            }});
+                        }});
+                    }});
+                }}
+            """)
+            
+            # 처리 완료 후 짧은 대기
+            await asyncio.sleep(0.2)
+            
+        except Exception as e:
+            print(f"  ⚠️ 닉네임 모자이크 처리 실패 (계속 진행): {e}")
     
     async def capture_post(self, browser, post, site_config, playwright_instance=None):
         """단일 게시물 캡처 - 갤럭시 모바일 환경으로 캡처"""
@@ -78,6 +183,8 @@ class CommunityScreenshotCapture:
             )
             
             page = await context.new_page()
+            
+            print(f"  🎭 닉네임 모자이크: 기본 셀렉터 사용")
             
             print(f"  🌐 페이지 이동 중: {post.url}")
             
@@ -149,25 +256,45 @@ class CommunityScreenshotCapture:
             if not element_found:
                 print(f"    ℹ️ 주요 요소 없지만 계속 진행: {post.site}")
             
+            # 디시인사이드 팝업 닫기
+            if post.site == 'dcinside':
+                print(f"  🔘 디시인사이드 팝업 닫기...")
+                try:
+                    # 여러 방법으로 팝업 닫기 시도
+                    await asyncio.sleep(1)
+                    
+                    # JavaScript로 팝업 제거
+                    await page.evaluate("""
+                        // 팝업, 알림, 공지 등 제거
+                        const popupSelectors = [
+                            '.layer', '.popup', '.alert', '.notice',
+                            '[class*="popup"]', '[class*="layer"]', '[class*="modal"]',
+                            'div[style*="position: fixed"]', 'div[style*="z-index"]'
+                        ];
+                        
+                        popupSelectors.forEach(selector => {
+                            document.querySelectorAll(selector).forEach(el => {
+                                const text = el.textContent;
+                                if (text && text.includes('이미지 순서')) {
+                                    el.remove();
+                                }
+                            });
+                        });
+                    """)
+                    
+                    # ESC 키로 닫기 시도
+                    await page.keyboard.press('Escape')
+                    await asyncio.sleep(0.5)
+                    
+                    print(f"  ✅ 팝업 제거 완료")
+                except Exception as e:
+                    print(f"  ⚠️ 팝업 닫기 실패: {e}")
+            
             # 한글 폰트 강제 적용을 위한 CSS 주입
             await page.add_style_tag(content="""
                 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
-                
                 * {
-                    font-family: 'Noto Sans KR', 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif !important;
-                    -webkit-font-smoothing: antialiased !important;
-                    -moz-osx-font-smoothing: grayscale !important;
-                    text-rendering: optimizeLegibility !important;
-                }
-                
-                body, div, span, p, h1, h2, h3, h4, h5, h6, a, td, th {
-                    font-family: 'Noto Sans KR', '맑은 고딕', 'Malgun Gothic' !important;
-                    font-weight: 400 !important;
-                }
-                
-                img {
-                    image-rendering: -webkit-optimize-contrast !important;
-                    image-rendering: crisp-edges !important;
+                    font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif !important;
                 }
             """)
             
@@ -194,9 +321,20 @@ class CommunityScreenshotCapture:
                 safe_title = f"{post.site}_{datetime.now().strftime('%H%M%S')}"
                 print(f"  ⚠️ 파일명 인코딩 오류, 기본명 사용: {safe_title}")
             
+            # 사이트별 디렉토리 생성
+            site_dir = self.date_dir / post.site
+            site_dir.mkdir(parents=True, exist_ok=True)
+            
+            # 게시물별 폴더 생성 (사이트 폴더 안에)
+            post_id = post.id if hasattr(post, 'id') else datetime.now().strftime('%H%M%S')
+            post_dir = site_dir / f"post_{post_id}_{safe_title[:20]}"
+            post_dir.mkdir(parents=True, exist_ok=True)
+            
+            print(f"  📂 게시물 폴더: {post_dir.name}")
+            
             # 갤럭시 S25 사이즈로 분할 캡처
             print(f"  📸 캡처 시작: {post.site}")
-            captured_files = await self.capture_in_segments(page, post, safe_title)
+            captured_files = await self.capture_in_segments(page, post, safe_title, post_dir)
             print(f"  ✅ 캡처 완료: {post.site} - {len(captured_files) if captured_files else 0}개 파일")
             
             await context.close()
@@ -216,49 +354,55 @@ class CommunityScreenshotCapture:
                     pass
             return None
     
-    async def capture_in_segments(self, page, post, safe_title):
-        """갤럭시 S25 사이즈에 맞게 페이지를 여러 구간으로 나누어 캡처 (최대 10개 제한)"""
+    async def capture_in_segments(self, page, post, safe_title, post_dir):
+        """갤럭시 S25 사이즈에 맞게 페이지를 여러 구간으로 나누어 캡처 (오버랩 적용)"""
         try:
             # 전체 페이지 높이 확인
             total_height = await page.evaluate('document.body.scrollHeight')
             viewport_height = 915  # 갤럭시 S25 높이
+            overlap = 100  # 오버랩 픽셀 (자연스러운 연결)
             
-            # 캡처할 구간 수 계산 (최대 10개로 제한)
-            segments = max(1, min(10, (total_height + viewport_height - 1) // viewport_height))
+            # 캡처할 구간 수 계산 (오버랩 고려, 제한 없이 전체 페이지)
+            effective_height = viewport_height - overlap
+            segments = max(1, (total_height + effective_height - 1) // effective_height)
             
-            print(f"  📏 전체 높이: {total_height}px, {segments}개 구간으로 분할 (최대 10개 제한)")
+            print(f"  📏 전체 높이: {total_height}px, {segments}개 구간으로 분할 (오버랩: {overlap}px)")
             
             captured_files = []
             
             for i in range(segments):
-                # 스크롤 위치 계산
-                scroll_y = i * viewport_height
+                # 스크롤 위치 계산 (오버랩 고려)
+                if i == 0:
+                    scroll_y = 0
+                else:
+                    scroll_y = i * effective_height
                 
                 # 스크롤
                 await page.evaluate(f'window.scrollTo(0, {scroll_y})')
-                await asyncio.sleep(0.4)  # 0.8초 → 0.4초
+                await asyncio.sleep(0.4)
                 
-                # 파일명 생성
+                # 파일명 간소화 (폴더명에 이미 정보가 있으므로)
                 if segments == 1:
-                    filename = f"{post.site}_{post.id}_{safe_title}.png"
+                    filename = f"{post.site}_capture.png"
                 else:
-                    filename = f"{post.site}_{post.id}_{safe_title}_part{i+1:02d}.png"
+                    filename = f"{post.site}_part{i+1:02d}.png"
                 
-                filepath = self.capture_dir / filename
+                filepath = post_dir / filename
+                
+                # 닉네임 모자이크 처리
+                await self.apply_nickname_blur(page, post.site)
                 
                 # 디시인사이드는 하단 136px 잘라서 캡처
                 if post.site == 'dcinside':
-                    # 디시인사이드: 하단 136px 제외하고 캡처
-                    crop_height = viewport_height - 136  # 915 - 136 = 779px
+                    crop_height = viewport_height - 136
                     await page.screenshot(
                         path=str(filepath),
                         full_page=False,
                         type='png',
                         scale='device',
-                        clip={'x': 0, 'y': 0, 'width': 412, 'height': crop_height}  # 하단 136px 자르기
+                        clip={'x': 0, 'y': 0, 'width': 412, 'height': crop_height}
                     )
                 else:
-                    # 다른 사이트: 일반 캡처
                     await page.screenshot(
                         path=str(filepath),
                         full_page=False,
@@ -445,15 +589,15 @@ class CommunityScreenshotCapture:
     async def capture_all_posts(self):
         """모든 게시물 캡처 실행"""
         print(f"🚀 모바일 캡처 시작 - {self.today}")
-        print(f"📁 저장 경로: {self.capture_dir}")
+        print(f"📁 저장 경로: {self.date_dir}")
         
         # 게시물 데이터 가져오기
         posts_by_site = await self.get_top_posts()
         
         async with async_playwright() as p:
-            # Chromium 브라우저 실행 - 모바일 시뮬레이션 + 한글 지원
+            # Chromium 브라우저 실행 - 모바일 시뮬레이션 + 한글 지원 + 광고 차단
             browser = await p.chromium.launch(
-                headless=True,  # 백그라운드 실행
+                headless=False,  # 백그라운드 실행
                 args=[
                     '--no-sandbox', 
                     '--disable-dev-shm-usage',
@@ -464,6 +608,7 @@ class CommunityScreenshotCapture:
                     '--lang=ko-KR',
                     '--accept-lang=ko-KR,ko,en-US,en',
                     '--disable-font-subpixel-positioning',
+                    '--disable-blink-features=AutomationControlled',  # 자동화 감지 방지
                     '--user-agent=Mozilla/5.0 (Linux; Android 14; SM-S926B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'  # 모바일 UA 강제
                 ]
             )
@@ -502,7 +647,8 @@ class CommunityScreenshotCapture:
                 
                 print(f"\n✅ 고해상도 갤럭시 S25 분할 캡처 완료!")
                 print(f"📊 총 {len(captured_files)}개 파일 생성 (갤럭시 S25: 412x915 @ 3x DPI)")
-                print(f"📁 저장 위치: {self.capture_dir}")
+                print(f"📁 저장 위치: {self.date_dir}")
+                print(f"📂 사이트별 폴더 구조로 정리됨")
                 
                 return captured_files
                 

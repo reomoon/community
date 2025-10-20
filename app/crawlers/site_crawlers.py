@@ -372,10 +372,10 @@ class BobaeCrawler(BaseCrawler):
         
         # 두 개의 URL에서 크롤링하여 총 20개 게시물 수집
         urls = [
-            # 기존 베스트 게시판 (10개)
+            # 기존 베스트 게시판 (20개)
             f"{self.base_url}/board/bulletin/list.php?code=best&vdate=w",
-            # 실시간 베스트 게시판 (10개 추가)
-            f"{self.base_url}/list?code=best"
+            # # 실시간 베스트 게시판 (10개 추가)
+            # f"{self.base_url}/list?code=best"
         ]
         
         all_post_list = []

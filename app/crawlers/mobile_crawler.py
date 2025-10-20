@@ -33,7 +33,7 @@ class MobileCrawler:
             
             # 브라우저 실행 (headless 모드)
             self.browser = self.playwright.chromium.launch(
-                headless=True,
+                headless=False,
                 args=[
                     '--no-sandbox', 
                     '--disable-dev-shm-usage',
