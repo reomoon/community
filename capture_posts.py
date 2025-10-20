@@ -260,33 +260,49 @@ class CommunityScreenshotCapture:
             if post.site == 'dcinside':
                 print(f"  🔘 디시인사이드 팝업 닫기...")
                 try:
-                    # 여러 방법으로 팝업 닫기 시도
+                    # 페이지 로딩 대기
                     await asyncio.sleep(1)
                     
-                    # JavaScript로 팝업 제거
-                    await page.evaluate("""
-                        // 팝업, 알림, 공지 등 제거
-                        const popupSelectors = [
-                            '.layer', '.popup', '.alert', '.notice',
-                            '[class*="popup"]', '[class*="layer"]', '[class*="modal"]',
-                            'div[style*="position: fixed"]', 'div[style*="z-index"]'
-                        ];
+                    # 특정 텍스트가 있는 p 태그 클릭
+                    try:
+                        # 해당 텍스트를 포함한 p.txt 요소 찾아서 클릭
+                        popup_element = await page.wait_for_selector('p.txt', timeout=3000)
+                        if popup_element:
+                            text_content = await popup_element.text_content()
+                            if '전체 서비스 설정에서 이미지 순서를' in text_content:
+                                print(f"  🎯 팝업 텍스트 발견, 클릭 시도...")
+                                await popup_element.click()
+                                await asyncio.sleep(0.5)
+                                print(f"  ✅ 팝업 텍스트 클릭 완료")
+                            else:
+                                print(f"  ℹ️ 다른 텍스트 발견: {text_content[:50]}...")
+                    except Exception as click_error:
+                        print(f"  ⚠️ 텍스트 클릭 실패, 대체 방법 시도: {click_error}")
                         
-                        popupSelectors.forEach(selector => {
-                            document.querySelectorAll(selector).forEach(el => {
-                                const text = el.textContent;
-                                if (text && text.includes('이미지 순서')) {
-                                    el.remove();
-                                }
+                        # 대체 방법: JavaScript로 팝업 제거
+                        await page.evaluate("""
+                            // 팝업, 알림, 공지 등 제거
+                            const popupSelectors = [
+                                '.layer', '.popup', '.alert', '.notice',
+                                '[class*="popup"]', '[class*="layer"]', '[class*="modal"]',
+                                'div[style*="position: fixed"]', 'div[style*="z-index"]'
+                            ];
+                            
+                            popupSelectors.forEach(selector => {
+                                document.querySelectorAll(selector).forEach(el => {
+                                    const text = el.textContent;
+                                    if (text && text.includes('이미지 순서')) {
+                                        el.remove();
+                                    }
+                                });
                             });
-                        });
-                    """)
+                        """)
                     
-                    # ESC 키로 닫기 시도
+                    # ESC 키로 닫기 시도 (추가 안전장치)
                     await page.keyboard.press('Escape')
                     await asyncio.sleep(0.5)
                     
-                    print(f"  ✅ 팝업 제거 완료")
+                    print(f"  ✅ 팝업 처리 완료")
                 except Exception as e:
                     print(f"  ⚠️ 팝업 닫기 실패: {e}")
             
