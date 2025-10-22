@@ -367,159 +367,206 @@ class BobaeCrawler(BaseCrawler):
         self.base_url = 'https://www.bobaedream.co.kr'
     
     def crawl_popular_posts(self) -> List[Dict]:
-        """보배드림 인기 게시물 크롤링 (베스트 + 실시간 베스트)"""
+        """보배드림 인기 게시물 크롤링 (정치글 제외)"""
         posts = []
         
-        # 두 개의 URL에서 크롤링하여 총 20개 게시물 수집
-        urls = [
-            # 기존 베스트 게시판 (20개)
-            f"{self.base_url}/board/bulletin/list.php?code=best&vdate=w",
-            # # 실시간 베스트 게시판 (10개 추가)
-            # f"{self.base_url}/list?code=best"
-        ]
-        
-        all_post_list = []
-        
-        for url_idx, url in enumerate(urls):
+        try:
+            # 새로운 베스트 게시판 URL (조회수 기준 20개)
+            url = "https://www.bobaedream.co.kr/list?code=best"
+            
+            print(f"보배드림 크롤링: {url}")
+            
+            # Playwright를 사용하여 정치 토글 버튼 클릭
             try:
-                print(f"보배드림 크롤링 {url_idx + 1}/2: {url}")
+                from playwright.sync_api import sync_playwright
+                import time
                 
-                response = self.session.get(url, timeout=10)
-                response.raise_for_status()
-                
-                soup = BeautifulSoup(response.content, 'html.parser')
-                
-                # URL에 따라 다른 선택자 사용
-                if "board/bulletin" in url:
-                    # 기존 베스트 게시판 (.pl14 클래스)
-                    post_cells = soup.select('.pl14')
-                else:
-                    # 실시간 베스트 게시판 (다른 구조 시도)
-                    post_cells = soup.select('.pl14') or soup.select('.listSub a') or soup.select('.list-table td a') or soup.select('.board-list td a') or soup.select('td a')
-                
-                print(f"보배드림 게시물 {len(post_cells)}개 발견")
-                
-                # 각 URL에서 최대 10개씩만 처리
-                current_url_posts = []
-                for cell in post_cells[:20]:  # 처음 20개만 처리하여 10개 선별
+                with sync_playwright() as p:
+                    # Chromium 브라우저 시작 (헤드리스 모드)
+                    browser = p.chromium.launch(
+                        headless=True,
+                        args=[
+                            '--no-sandbox',
+                            '--disable-dev-shm-usage',
+                            '--disable-web-security'
+                        ]
+                    )
+                    
+                    # 새 페이지 생성
+                    context = browser.new_context(
+                        user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    )
+                    page = context.new_page()
+                    
+                    print("보배드림 페이지 로딩 중...")
+                    page.goto(url, wait_until='domcontentloaded', timeout=30000)
+                    
+                    print("정치 토글 버튼 찾는 중...")
+                    
+                    # 정치 토글 버튼 클릭 시도
+                    button_clicked = False
                     try:
-                        # cell이 a 태그인지 확인
-                        if cell.name == 'a':
-                            title_link = cell
-                            title = cell.get_text(strip=True)
-                        else:
-                            title_link = cell.select_one('a')
-                            if not title_link:
+                        # 여러 셀렉터로 정치 토글 버튼 찾기
+                        politic_selectors = [
+                            "button[onclick*='politic_cookie']",
+                            "button:has-text('정치 X')",
+                            "span:has-text('정치 X')",
+                            "img[src*='politics']"
+                        ]
+                        
+                        for selector in politic_selectors:
+                            try:
+                                element = page.wait_for_selector(selector, timeout=5000)
+                                if element and element.is_visible():
+                                    element.click()
+                                    print("✅ 정치 토글 버튼 클릭 완료")
+                                    button_clicked = True
+                                    page.wait_for_timeout(2000)  # 2초 대기
+                                    break
+                            except Exception as e:
                                 continue
-                            title = title_link.get_text(strip=True)
                         
-                        if not title or len(title) < 5:
-                            continue
-                        
-                        # 제외 단어 필터링
-                        if self.should_exclude_post(title):
-                            print(f"보배드림 게시물 제외: {title[:30]}...")
-                            continue
-                        
-                        # URL 구성
-                        href = title_link.get('href', '')
-                        if href.startswith('/'):
-                            post_url = self.base_url + href
-                        else:
-                            post_url = href
-                        
-                        # 기본값 설정
-                        author = '보배드림'
-                        views = 0
-                        likes = 0
-                        comments = 0
-                        
-                        # 부모 tr에서 다른 정보 찾기 (첫 번째 URL의 경우)
-                        if "board/bulletin" in url:
-                            parent_tr = cell.find_parent('tr')
-                            if parent_tr:
-                                # 부모 tr에서 정보 추출
-                                tds = parent_tr.find_all('td')
-                                
-                                # TR 구조: [카테고리, 제목+댓글, 작성자, 시간, 추천수, 조회수]
-                                
-                                # 작성자 (TD[2])
-                                author = tds[2].get_text(strip=True) if len(tds) > 2 else '보배드림'
-                                
-                                # 조회수 (TD[5])
-                                if len(tds) > 5:
-                                    views_text = tds[5].get_text(strip=True)
-                                    if views_text.isdigit():
-                                        views = int(views_text)
-                                
-                                # 추천수 (TD[4])
-                                if len(tds) > 4:
-                                    likes_text = tds[4].get_text(strip=True)
-                                    if likes_text.isdigit():
-                                        likes = int(likes_text)
-                                
-                                # 댓글수 (제목에서 (숫자) 형태로 추출)
-                                full_title = tds[1].get_text(strip=True) if len(tds) > 1 else title
-                                
-                                # (숫자) 패턴으로 댓글수 추출
-                                comment_match = re.search(r'\((\d+)\)', full_title)
-                                if comment_match:
-                                    comments = int(comment_match.group(1))
-                                    # 제목에서 댓글수 제거
-                                    title = re.sub(r'\(\d+\)', '', full_title).strip()
-                        else:
-                            # 실시간 베스트의 경우 기본값 사용
-                            # 댓글수만 제목에서 추출 시도
-                            comment_match = re.search(r'\((\d+)\)', title)
-                            if comment_match:
-                                comments = int(comment_match.group(1))
-                                title = re.sub(r'\(\d+\)', '', title).strip()
-                        
-                        # 인기도 점수 계산 (조회수 + 추천수*2 + 댓글수*3)
-                        popularity_score = views + (likes * 2) + (comments * 3)
-                        
-                        post_data = {
-                            'title': title,
-                            'url': post_url,
-                            'site': self.site_name,
-                            'category': '인기',
-                            'author': author,
-                            'views': views,
-                            'likes': likes,
-                            'comments': comments,
-                            'popularity_score': popularity_score
-                        }
-                        
-                        current_url_posts.append(post_data)
+                        if not button_clicked:
+                            print("⚠️ 정치 토글 버튼을 찾을 수 없음, JavaScript로 직접 실행 시도")
+                            # JavaScript로 직접 함수 호출
+                            page.evaluate("if(typeof politic_cookie === 'function') { politic_cookie(); }")
+                            page.wait_for_timeout(2000)
+                            print("✅ JavaScript로 정치 필터 적용 완료")
                         
                     except Exception as e:
-                        print(f"보배드림 게시물 파싱 오류: {e}")
+                        print(f"⚠️ 정치 토글 실패, 기본 상태로 진행: {e}")
+                    
+                    # 페이지 내용 가져오기
+                    page_content = page.content()
+                    browser.close()
+                    
+                    # BeautifulSoup으로 파싱
+                    soup = BeautifulSoup(page_content, 'html.parser')
+                
+            except Exception as playwright_error:
+                print(f"⚠️ Playwright 사용 실패, 기본 requests로 대체: {playwright_error}")
+                # Playwright 실패시 기본 requests 사용
+                response = self.session.get(url, timeout=10)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # 게시물 목록 파싱 (새로운 구조에 맞게)
+            post_items = soup.select('.listSub')
+            
+            # 대체 셀렉터들 시도
+            if not post_items:
+                post_items = soup.select('.list-table tr')
+            if not post_items:
+                post_items = soup.select('.board-list tr')
+            if not post_items:
+                post_items = soup.select('table tr')
+            if not post_items:
+                post_items = soup.select('tr')
+            
+            print(f"보배드림 게시물 {len(post_items)}개 발견")
+            
+            post_list = []
+            for item in post_items[:25]:  # 처음 25개 처리하여 20개 선별
+                try:
+                    # 링크 찾기
+                    title_link = item.find('a')
+                    if not title_link:
                         continue
+                    
+                    title = title_link.get_text(strip=True)
+                    if not title or len(title) < 5:
+                        continue
+                    
+                    # 정치 관련 키워드 필터링 (추가 보안)
+                    political_keywords = ['정치', '대통령', '국회', '의원', '선거', '정당', '민주당', '국민의힘', '조국', '윤석열', '문재인']
+                    if any(keyword in title for keyword in political_keywords):
+                        print(f"보배드림 정치글 제외: {title[:30]}...")
+                        continue
+                    
+                    # 기본 제외 단어 필터링
+                    if self.should_exclude_post(title):
+                        print(f"보배드림 게시물 제외: {title[:30]}...")
+                        continue
+                    
+                    # URL 구성
+                    href = title_link.get('href', '')
+                    if href.startswith('/'):
+                        post_url = self.base_url + href
+                    else:
+                        post_url = href
+                    
+                    # 부모 요소에서 추가 정보 추출
+                    parent = item.find_parent('tr') or item
+                    
+                    # 기본값 설정
+                    author = '보배드림'
+                    views = 0
+                    likes = 0
+                    comments = 0
+                    
+                    # 테이블 구조에서 정보 추출
+                    cells = parent.find_all('td')
+                    if len(cells) >= 4:
+                        # 일반적인 테이블 구조: [번호, 제목, 작성자, 시간, 조회수, 추천수]
+                        for i, cell in enumerate(cells):
+                            cell_text = cell.get_text(strip=True)
+                            
+                            # 조회수 (숫자가 큰 것)
+                            if cell_text.isdigit():
+                                num = int(cell_text)
+                                if num > 100 and views == 0:  # 100 이상이면 조회수로 간주
+                                    views = num
+                                elif num < 100 and num > 0 and likes == 0:  # 100 미만이면 추천수로 간주
+                                    likes = num
+                            
+                            # 작성자 (링크가 없는 텍스트)
+                            if not cell.find('a') and len(cell_text) > 0 and len(cell_text) < 20 and author == '보배드림':
+                                if not cell_text.isdigit() and ':' not in cell_text:
+                                    author = cell_text
+                    
+                    # 댓글수 제목에서 추출
+                    comment_patterns = [
+                        r'\((\d+)\)',  # (숫자) 패턴
+                        r'\[(\d+)\]',  # [숫자] 패턴
+                    ]
+                    
+                    for pattern in comment_patterns:
+                        comment_match = re.search(pattern, title)
+                        if comment_match:
+                            comments = int(comment_match.group(1))
+                            title = re.sub(pattern, '', title).strip()
+                            break
+                    
+                    # 인기도 점수 계산 (조회수 + 추천수*2 + 댓글수*3)
+                    popularity_score = views + (likes * 2) + (comments * 3)
+                    
+                    post_data = {
+                        'title': title,
+                        'url': post_url,
+                        'site': self.site_name,
+                        'category': '인기',
+                        'author': author,
+                        'views': views,
+                        'likes': likes,
+                        'comments': comments,
+                        'popularity_score': popularity_score
+                    }
+                    
+                    post_list.append(post_data)
+                    
+                except Exception as e:
+                    print(f"보배드림 게시물 파싱 오류: {e}")
+                    continue
+            
+            # 조회수 기준으로 정렬하고 상위 20개 선택
+            post_list.sort(key=lambda x: x['views'], reverse=True)
+            posts = post_list[:20]
+            
+            for post in posts:
+                print(f"보배드림 게시물 추가: {post['title'][:50]}... (조회:{post['views']}, 추천:{post['likes']}, 댓글:{post['comments']})")
                 
-                # 현재 URL에서 가져온 게시물들을 인기도순으로 정렬하고 상위 10개만 선택
-                current_url_posts.sort(key=lambda x: x['popularity_score'], reverse=True)
-                selected_posts = current_url_posts[:10]
-                
-                print(f"보배드림 URL {url_idx + 1}에서 {len(selected_posts)}개 게시물 선택")
-                all_post_list.extend(selected_posts)
-                
-            except Exception as e:
-                print(f"보배드림 크롤링 오류 (URL {url_idx + 1}): {e}")
-                continue
-        
-        # 중복 제거 (URL 기준) - 각 URL에서 이미 10개씩 선택했으므로 최대 20개
-        seen_urls = set()
-        unique_posts = []
-        for post in all_post_list:
-            if post['url'] not in seen_urls:
-                seen_urls.add(post['url'])
-                unique_posts.append(post)
-        
-        # 최종적으로 20개 또는 중복 제거된 모든 게시물 반환
-        posts = unique_posts
-        
-        for post in posts:
-            print(f"보배드림 게시물 추가: {post['title'][:50]}... (조회:{post['views']}, 추천:{post['likes']}, 댓글:{post['comments']})")
+        except Exception as e:
+            print(f"보배드림 크롤링 오류: {e}")
         
         return posts
 
