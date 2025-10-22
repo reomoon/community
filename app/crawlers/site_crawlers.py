@@ -450,14 +450,12 @@ class BobaeCrawler(BaseCrawler):
                 response.raise_for_status()
                 soup = BeautifulSoup(response.content, 'html.parser')
             
-            # 게시물 목록 파싱 (새로운 구조에 맞게)
-            post_items = soup.select('.listSub')
+            # 게시물 목록 파싱 (보배드림 베스트 게시판 구조에 맞게)
+            post_items = soup.select('tr.listSub')
             
             # 대체 셀렉터들 시도
             if not post_items:
-                post_items = soup.select('.list-table tr')
-            if not post_items:
-                post_items = soup.select('.board-list tr')
+                post_items = soup.select('.listSub')
             if not post_items:
                 post_items = soup.select('table tr')
             if not post_items:
@@ -466,18 +464,54 @@ class BobaeCrawler(BaseCrawler):
             print(f"보배드림 게시물 {len(post_items)}개 발견")
             
             post_list = []
-            for item in post_items[:25]:  # 처음 25개 처리하여 20개 선별
+            for item in post_items[:30]:  # 처음 30개 처리하여 20개 선별
                 try:
-                    # 링크 찾기
-                    title_link = item.find('a')
-                    if not title_link:
+                    # 테이블 셀들 가져오기
+                    cells = item.find_all('td')
+                    
+                    if len(cells) < 6:  # 충분한 셀이 없으면 스킵
                         continue
                     
-                    title = title_link.get_text(strip=True)
+                    # 보배드림 실제 구조: [카테고리, 제목, 작성자, 시간, 추천, 조회]
+                    # 제목은 셀[1]에 있고, 링크는 별도로 찾아야 함
+                    title_cell = cells[1] if len(cells) > 1 else None
+                    if not title_cell:
+                        continue
+                    
+                    # 제목 텍스트 (링크 없이도 가능)
+                    title = title_cell.get_text(strip=True)
+                    
                     if not title or len(title) < 5:
                         continue
                     
-                    # 정치 관련 키워드 필터링 (추가 보안)
+                    # URL 찾기 - 제목 셀이나 다른 셀에서 링크 찾기
+                    post_url = ""
+                    title_link = title_cell.find('a')
+                    if title_link:
+                        href = title_link.get('href', '')
+                        if href.startswith('/'):
+                            post_url = self.base_url + href
+                        else:
+                            post_url = href
+                    else:
+                        # 다른 셀에서 링크 찾기 시도
+                        for cell in cells:
+                            link = cell.find('a')
+                            if link and link.get('href'):
+                                href = link.get('href', '')
+                                if 'view.php' in href or 'board' in href:  # 게시물 링크로 보이는 것
+                                    if href.startswith('/'):
+                                        post_url = self.base_url + href
+                                    else:
+                                        post_url = href
+                                    break
+                    
+                    # URL이 없으면 스킵
+                    if not post_url:
+                        print(f"보배드림 디버그: URL을 찾을 수 없음 - {title[:30]}")
+                        continue
+                    
+                    # 정치 관련 키워드 필터링
                     political_keywords = ['정치', '대통령', '국회', '의원', '선거', '정당', '민주당', '국민의힘', '조국', '윤석열', '문재인']
                     if any(keyword in title for keyword in political_keywords):
                         print(f"보배드림 정치글 제외: {title[:30]}...")
@@ -488,41 +522,29 @@ class BobaeCrawler(BaseCrawler):
                         print(f"보배드림 게시물 제외: {title[:30]}...")
                         continue
                     
-                    # URL 구성
-                    href = title_link.get('href', '')
-                    if href.startswith('/'):
-                        post_url = self.base_url + href
-                    else:
-                        post_url = href
-                    
-                    # 부모 요소에서 추가 정보 추출
-                    parent = item.find_parent('tr') or item
-                    
                     # 기본값 설정
                     author = '보배드림'
                     views = 0
                     likes = 0
                     comments = 0
                     
-                    # 테이블 구조에서 정보 추출
-                    cells = parent.find_all('td')
-                    if len(cells) >= 4:
-                        # 일반적인 테이블 구조: [번호, 제목, 작성자, 시간, 조회수, 추천수]
-                        for i, cell in enumerate(cells):
-                            cell_text = cell.get_text(strip=True)
-                            
-                            # 조회수 (숫자가 큰 것)
-                            if cell_text.isdigit():
-                                num = int(cell_text)
-                                if num > 100 and views == 0:  # 100 이상이면 조회수로 간주
-                                    views = num
-                                elif num < 100 and num > 0 and likes == 0:  # 100 미만이면 추천수로 간주
-                                    likes = num
-                            
-                            # 작성자 (링크가 없는 텍스트)
-                            if not cell.find('a') and len(cell_text) > 0 and len(cell_text) < 20 and author == '보배드림':
-                                if not cell_text.isdigit() and ':' not in cell_text:
-                                    author = cell_text
+                    # 작성자 (셀[2])
+                    if len(cells) > 2:
+                        author_text = cells[2].get_text(strip=True)
+                        if author_text and len(author_text) < 20:
+                            author = author_text
+                    
+                    # 추천수 (셀[4])
+                    if len(cells) > 4:
+                        likes_text = cells[4].get_text(strip=True).replace(',', '')
+                        if likes_text.isdigit():
+                            likes = int(likes_text)
+                    
+                    # 조회수 (셀[5])
+                    if len(cells) > 5:
+                        views_text = cells[5].get_text(strip=True).replace(',', '')
+                        if views_text.isdigit():
+                            views = int(views_text)
                     
                     # 댓글수 제목에서 추출
                     comment_patterns = [
@@ -537,8 +559,9 @@ class BobaeCrawler(BaseCrawler):
                             title = re.sub(pattern, '', title).strip()
                             break
                     
-                    # 인기도 점수 계산 (조회수 + 추천수*2 + 댓글수*3)
-                    popularity_score = views + (likes * 2) + (comments * 3)
+                    # 조회수가 0이면 기본값 설정 (파싱 실패한 경우)
+                    if views == 0:
+                        views = 1
                     
                     post_data = {
                         'title': title,
@@ -549,13 +572,16 @@ class BobaeCrawler(BaseCrawler):
                         'views': views,
                         'likes': likes,
                         'comments': comments,
-                        'popularity_score': popularity_score
+                        'popularity_score': views + (likes * 2) + (comments * 3)
                     }
                     
                     post_list.append(post_data)
+                    print(f"보배드림 게시물 추가 성공: {title[:30]}... (조회:{views}, 추천:{likes})")
                     
                 except Exception as e:
                     print(f"보배드림 게시물 파싱 오류: {e}")
+                    import traceback
+                    print(f"보배드림 디버그 스택트레이스: {traceback.format_exc()}")
                     continue
             
             # 조회수 기준으로 정렬하고 상위 20개 선택

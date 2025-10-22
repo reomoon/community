@@ -56,9 +56,10 @@ def get_posts():
     all_posts = query.order_by(Post.crawled_at.desc()).all()
     
     # 사이트 우선순위: 보배 -> 루리웹 -> 디시 -> 뽐뿌 -> 에펨 순
+    # 각 사이트 내에서는 조회수 순으로 정렬
     site_priority = {'bobae': 0, 'ruliweb': 1, 'dcinside': 2, 'ppomppu': 3, 'fmkorea': 4}
     
-    posts = sorted(all_posts, key=lambda x: (site_priority.get(x.site, 99), -x.crawled_at.timestamp()))[:limit]
+    posts = sorted(all_posts, key=lambda x: (site_priority.get(x.site, 99), -(x.views or 0)))[:limit]
     
     return jsonify({
         'posts': [post.to_dict() for post in posts],
@@ -112,8 +113,9 @@ def generate_static():
         all_posts = Post.query.order_by(Post.crawled_at.desc()).all()
         
         # Python으로 사이트 우선순위 정렬: 보배 -> 디시 -> 뽐뿌 -> 에펨 순
+        # 각 사이트 내에서는 조회수 순으로 정렬
         site_priority = {'bobae': 0, 'dcinside': 1, 'ppomppu': 2, 'fmkorea': 3}
-        posts = sorted(all_posts, key=lambda x: (site_priority.get(x.site, 99), -x.crawled_at.timestamp()))[:50]
+        posts = sorted(all_posts, key=lambda x: (site_priority.get(x.site, 99), -(x.views or 0)))[:50]
         
         # 사이트별 통계
         site_stats = {}
