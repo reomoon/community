@@ -579,22 +579,22 @@ class CommunityScreenshotCapture:
             print(f"⚠️ 스크롤 중 오류: {e}")
     
     async def get_top_posts(self):
-        """각 사이트별 랜덤 2개 게시물 조회"""
+        """각 사이트별 랜덤 10개 게시물 조회"""
         import random
         app = create_app()
         posts_by_site = {}
         
         with app.app_context():
-            # 뽐뿌 제외하고 4개 사이트 캡처 (루리웹 포함)
+            # 뽐뿌 제외하고 4개 사이트 캡처
             for site in ['bobae', 'ruliweb', 'dcinside', 'fmkorea']:
                 # 전체 게시물 중에서 랜덤 선택
                 all_posts = Post.query.filter(Post.site == site).all()
                 
-                if len(all_posts) > 5:
-                    # 5개 이상 있으면 랜덤으로 5개 선택
-                    posts = random.sample(all_posts, 5)
+                if len(all_posts) > 10:
+                    # 10개 이상 있으면 랜덤으로 10개 선택
+                    posts = random.sample(all_posts, 10)
                 else:
-                    # 5개 미만이면 모든 게시물 선택
+                    # 10개 미만이면 모든 게시물 선택
                     posts = all_posts
                 
                 posts_by_site[site] = posts
