@@ -47,6 +47,11 @@ class CommunityScreenshotCapture:
                 'name': '디시인사이드',
                 'wait_selectors': ['.writing_view_box'],  # 필수 요소만
                 'scroll_delay': 1  # 2초 → 1초
+            },
+            'ppomppu': {
+                'name': '뽐뿌',
+                'wait_selectors': ['.board-contents', '.board_main', '.view_content'],  # 뽐뿌 본문 주요 요소
+                'scroll_delay': 1  # 1초
             }
         }
     
@@ -56,18 +61,10 @@ class CommunityScreenshotCapture:
             # 사이트별 닉네임 셀렉터 (더 많은 셀렉터 추가)
             nickname_selectors = {
                 'bobae': [
-                    '.nick', '.name', '.writer', '.nickname',
-                    '.re_name', '.comment_writer', '.cmt_nickname',
-                    '.ub-writer', '.writer-name', '.user-name',
-                    'span.nick', 'span.name', 'span.writer',
-                    'td.name', 'td.nick', 'div.writer',
-                    '.member_info', '.writer_info', '.user_info',
-                    'strong.name', 'strong.nick', 'b.name'
+                    'span.data4', '.data4'
                 ],
                 'ruliweb': [
-                    '.nick', '.user_nick', '.comment_nick',
-                    '.writer', '.author', '.user_id',
-                    'span.nick', '.member_nick', '.reply_nick'
+                    '.nick', 'strong.nick'
                 ],
                 'fmkorea': [
                     '.nick', '.nickname', '.username', '.user_name',
@@ -77,9 +74,10 @@ class CommunityScreenshotCapture:
                     '.comment_nick', '.reply_nick'
                 ],
                 'dcinside': [
-                    '.nickname', '.gall_writer', '.writer',
-                    '.nick', '.user_nick', '.reply_name',
-                    'span.nickname', '.writer_nickname'
+                    '.nick', 'a.nick'
+                ],
+                'ppomppu': [
+                    'span.com_name_writer', '.com_name_writer', 'h6.com_name'
                 ]
             }
             
@@ -110,31 +108,25 @@ class CommunityScreenshotCapture:
                     }});
                 }});
                 
-                // 보배드림 전용 처리
+                // 보배드림 전용 처리 (더 정교하게)
                 if (site === 'bobae') {{
-                    // 댓글 영역 찾기
                     const commentSections = document.querySelectorAll('.re, .reply, .comment, [class*="cmt"], [class*="reply"]');
-                    
                     commentSections.forEach(section => {{
-                        // 테이블 행에서 닉네임 찾기
                         const rows = section.querySelectorAll('tr, div, li');
                         rows.forEach(row => {{
-                            // 행 내의 모든 텍스트 요소
                             const textElements = row.querySelectorAll('td, span, div, strong, b, a');
-                            
                             textElements.forEach((el, index) => {{
                                 if (processedElements.has(el)) return;
-                                
                                 const text = el.textContent.trim();
-                                
                                 // 닉네임 패턴: 짧은 텍스트 (2-10자)
                                 if (text.length >= 2 && text.length <= 10) {{
-                                    // 날짜/시간 형식 제외
-                                    if (!/^\d{{2,4}}[-./]\d{{1,2}}[-./]\d{{1,2}}/.test(text) &&
+                                    // 날짜/시간/숫자/레벨/답글/댓글/RE: 등 제외
+                                    if (
+                                        !/^\d{{2,4}}[-./]\d{{1,2}}[-./]\d{{1,2}}/.test(text) &&
                                         !/^\d{{1,2}}:\d{{2}}/.test(text) &&
-                                        !/^답글|^댓글|^RE:|^Reply/i.test(text) &&
-                                        !/^\d+$/.test(text)) {{
-                                        
+                                        !/^답글|^댓글|^RE:|^Reply|^LV|^레벨|^관리자|^운영자/i.test(text) &&
+                                        !/^\d+$/.test(text)
+                                    ) {{
                                         processedElements.add(el);
                                         el.style.filter = 'blur(8px)';
                                         el.style.color = 'transparent';
@@ -202,6 +194,10 @@ class CommunityScreenshotCapture:
                 except Exception as e2:
                     print(f"  ⚠️ 페이지 로딩 지연, 계속 진행: {post.site}")
                     # 타임아웃이어도 페이지가 부분적으로 로딩되었을 수 있으므로 계속 진행
+
+            # 뽐뿌는 팝업 먼저 닫기
+            if post.site == 'ppomppu':
+                await self.handle_ppomppu_mobile_popup(page)
             
             # 페이지 인코딩 및 폰트 강제 설정
             await page.evaluate("""
@@ -436,120 +432,27 @@ class CommunityScreenshotCapture:
             return []
     
     async def handle_ppomppu_mobile_popup(self, page):
-        """뽐뿌 사이트의 모바일 웹 팝업 처리 - 강화 버전"""
+        """뽐뿌 사이트의 모바일 웹 팝업 처리 - 강화 버전"""    
         try:
             print("  📱 뽐뿌 모바일 팝업 처리 시작...")
-            
-            # 1. 즉시 JavaScript로 팝업 제거 (선제 공격)
-            await page.evaluate("""
-                // 모든 팝업 관련 요소 즉시 제거
-                const removePopups = () => {
-                    const popupSelectors = [
-                        '.popup', '.modal', '.layer', '.overlay', '.dimmed',
-                        '[class*="popup"]', '[id*="popup"]', '[class*="modal"]', '[id*="modal"]',
-                        '.layer_popup', '.modal_popup', '.app_popup', '.mobile_popup'
-                    ];
-                    
-                    popupSelectors.forEach(selector => {
-                        document.querySelectorAll(selector).forEach(el => {
-                            if (el.offsetParent !== null) {
-                                el.style.display = 'none';
-                                el.remove();
-                            }
-                        });
-                    });
-                    
-                    // body 스타일 정상화
-                    document.body.style.overflow = 'auto';
-                    document.documentElement.style.overflow = 'auto';
-                    document.body.style.position = 'static';
-                };
-                
-                // 즉시 실행
-                removePopups();
-                
-                // 주기적으로 실행 (팝업이 지연 로딩될 수 있음)
-                setInterval(removePopups, 500);
-            """)
-            
-            # 2. 모바일 웹으로 보기 버튼 찾기 (확장된 셀렉터)
-            mobile_button_selectors = [
-                'a[href*="mobile"]', 'a[href*="m.ppomppu"]',
-                '.mobile_btn', '.btn_mobile', 
-                'button:has-text("모바일")', 'a:has-text("모바일웹")', 
-                'a:has-text("모바일로")', 'a:has-text("모바일 보기")',
-                'a:has-text("불편해도")', 'button:has-text("불편해도")',
-                '.popup a', '.modal a', '.layer a',
-                '[onclick*="mobile"]', '[onclick*="m.ppomppu"]'
-            ]
-            
-            for selector in mobile_button_selectors:
-                try:
-                    element = await page.wait_for_selector(selector, timeout=1000)
-                    if element and await element.is_visible():
-                        text = await element.text_content()
-                        print(f"  ✅ 모바일 버튼 발견: {selector} - '{text}'")
-                        await element.click()
-                        print("  🔘 모바일 웹으로 보기 버튼 클릭 완료")
-                        await asyncio.sleep(1)
-                        break
-                except:
-                    continue
-            
-            # 3. 팝업 닫기 버튼 시도 (확장된 셀렉터)
-            close_selectors = [
-                '.close', '.btn_close', '.popup_close', '.modal_close', '.layer_close',
-                '[class*="close"]', '[id*="close"]',
-                'button:has-text("닫기")', 'a:has-text("닫기")', 'span:has-text("닫기")',
-                'button:has-text("×")', 'a:has-text("×")', 'span:has-text("×")',
-                'button:has-text("X")', 'a:has-text("X")', '.btn_x', '.close_x'
-            ]
-            
-            for selector in close_selectors:
-                try:
-                    element = await page.wait_for_selector(selector, timeout=500)
-                    if element and await element.is_visible():
-                        await element.click()
-                        print(f"  ❌ 팝업 닫기 버튼 클릭: {selector}")
-                        await asyncio.sleep(0.5)
-                        break
-                except:
-                    continue
-            
-            # 4. 최종 강제 팝업 제거 + ESC 키 시도
-            await page.evaluate("""
-                // 최종 팝업 제거
-                const finalRemovePopups = () => {
-                    // 모든 가능한 팝업 요소 제거
-                    const allElements = document.querySelectorAll('*');
-                    allElements.forEach(el => {
-                        const style = window.getComputedStyle(el);
-                        // z-index가 높거나 fixed/absolute 포지션인 요소 중 팝업 의심 요소 제거
-                        if ((style.position === 'fixed' || style.position === 'absolute') && 
-                            (parseInt(style.zIndex) > 100 || style.zIndex === 'auto')) {
-                            const rect = el.getBoundingClientRect();
-                            // 화면을 덮는 크기의 요소는 팝업일 가능성이 높음
-                            if (rect.width > window.innerWidth * 0.8 || rect.height > window.innerHeight * 0.8) {
-                                el.style.display = 'none';
-                                el.remove();
-                            }
-                        }
-                    });
-                    
-                    // body 속성 완전 정상화
-                    document.body.style.cssText = 'overflow: auto !important; position: static !important;';
-                    document.documentElement.style.cssText = 'overflow: auto !important;';
-                };
-                
-                finalRemovePopups();
-            """)
-            
-            # ESC 키 눌러서 팝업 닫기 시도
-            await page.keyboard.press('Escape')
-            await asyncio.sleep(0.3)
-                    
-            print("  ✅ 뽐뿌 팝업 처리 완료")
-            
+
+            # 1. '불편해도 모바일웹으로 보기' 버튼만 클릭
+            try:
+                element = await page.wait_for_selector('small[onclick*="useWeb"]', timeout=3000)
+                if element and await element.is_visible():
+                    text = await element.text_content()
+                    print(f"  ✅ 모바일 버튼 발견: '{text}'")
+                    await element.click()
+                    print("  🔘 모바일웹으로 보기 버튼 클릭 완료")
+                    await asyncio.sleep(1)
+                    return  # 성공 시 바로 리턴
+            except Exception as e:
+                print(f"  ⚠️ 모바일 버튼 클릭 실패: {e}")
+
+            # (필요시) 추가 팝업 제거 로직을 여기에 넣을 수 있습니다.
+
+            print("  ⚠️ '불편해도 모바일웹으로 보기' 버튼을 찾지 못했습니다.")
+
         except Exception as e:
             print(f"  ⚠️ 뽐뿌 팝업 처리 중 오류 (계속 진행): {e}")
     
@@ -586,7 +489,8 @@ class CommunityScreenshotCapture:
         
         with app.app_context():
             # 뽐뿌 제외하고 4개 사이트 캡처
-            for site in ['bobae', 'ruliweb', 'dcinside', 'fmkorea']:
+            for site in ['bobae', 'ruliweb', 'dcinside', 'fmkorea', 'ppomppu']:
+                # site = "ppomppu" # 한 개 디버깅용
                 # 전체 게시물 중에서 랜덤 선택
                 all_posts = Post.query.filter(Post.site == site).all()
                 
