@@ -50,7 +50,7 @@ class CommunityScreenshotCapture:
             },
             'ppomppu': {
                 'name': '뽐뿌',
-                'wait_selectors': ['.board-contents', '.board_main', '.view_content'],  # 뽐뿌 본문 주요 요소
+                'wait_selectors': ['.board-contents'],  # 뽐뿌 본문 주요 없으므로 주석 처리
                 'scroll_delay': 1  # 1초
             }
         }
@@ -77,7 +77,7 @@ class CommunityScreenshotCapture:
                     '.nick', 'a.nick'
                 ],
                 'ppomppu': [
-                    'span.com_name_writer', '.com_name_writer', 'h6.com_name'
+                    'span.com_name_writer'
                 ]
             }
             
@@ -107,8 +107,6 @@ class CommunityScreenshotCapture:
                         el.style.padding = '2px 6px';
                     }});
                 }});
-                
-                
             """)
             
             # 처리 완료 후 짧은 대기
@@ -458,8 +456,8 @@ class CommunityScreenshotCapture:
         
         with app.app_context():
             # 뽐뿌 제외하고 4개 사이트 캡처
-            for site in ['bobae', 'ruliweb', 'dcinside', 'fmkorea', 'ppomppu']:
-                # site = "ppomppu" # 한 개 디버깅용
+            # for site in ['bobae', 'ruliweb', 'dcinside', 'fmkorea', 'ppomppu']:
+                site = "ppomppu" # 한 개 디버깅용
                 # 전체 게시물 중에서 랜덤 선택
                 all_posts = Post.query.filter(Post.site == site).all()
                 
