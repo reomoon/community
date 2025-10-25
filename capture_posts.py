@@ -108,38 +108,7 @@ class CommunityScreenshotCapture:
                     }});
                 }});
                 
-                // 보배드림 전용 처리 (더 정교하게)
-                if (site === 'bobae') {{
-                    const commentSections = document.querySelectorAll('.re, .reply, .comment, [class*="cmt"], [class*="reply"]');
-                    commentSections.forEach(section => {{
-                        const rows = section.querySelectorAll('tr, div, li');
-                        rows.forEach(row => {{
-                            const textElements = row.querySelectorAll('td, span, div, strong, b, a');
-                            textElements.forEach((el, index) => {{
-                                if (processedElements.has(el)) return;
-                                const text = el.textContent.trim();
-                                // 닉네임 패턴: 짧은 텍스트 (2-10자)
-                                if (text.length >= 2 && text.length <= 10) {{
-                                    // 날짜/시간/숫자/레벨/답글/댓글/RE: 등 제외
-                                    if (
-                                        !/^\d{{2,4}}[-./]\d{{1,2}}[-./]\d{{1,2}}/.test(text) &&
-                                        !/^\d{{1,2}}:\d{{2}}/.test(text) &&
-                                        !/^답글|^댓글|^RE:|^Reply|^LV|^레벨|^관리자|^운영자/i.test(text) &&
-                                        !/^\d+$/.test(text)
-                                    ) {{
-                                        processedElements.add(el);
-                                        el.style.filter = 'blur(8px)';
-                                        el.style.color = 'transparent';
-                                        el.style.textShadow = '0 0 8px rgba(0,0,0,0.5)';
-                                        el.style.background = 'rgba(200,200,200,0.3)';
-                                        el.style.borderRadius = '4px';
-                                        el.style.padding = '2px 6px';
-                                    }}
-                                }}
-                            }});
-                        }});
-                    }});
-                }}
+                
             """)
             
             # 처리 완료 후 짧은 대기
