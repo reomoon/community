@@ -456,8 +456,8 @@ class CommunityScreenshotCapture:
         
         with app.app_context():
             # 뽐뿌 제외하고 4개 사이트 캡처
-            # for site in ['bobae', 'ruliweb', 'dcinside', 'fmkorea', 'ppomppu']:
-                site = "ppomppu" # 한 개 디버깅용
+            for site in ['bobae', 'ruliweb', 'dcinside', 'fmkorea', 'ppomppu']:
+                #site = "ppomppu" # 한 개 디버깅용
                 # 전체 게시물 중에서 랜덤 선택
                 all_posts = Post.query.filter(Post.site == site).all()
                 
