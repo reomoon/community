@@ -64,7 +64,7 @@ class CommunityScreenshotCapture:
                     'span.data4', '.data4'
                 ],
                 'ruliweb': [
-                    '.nick', 'strong.nick'
+                    '.nick', 'strong.nick', 'span.p_nick'
                 ],
                 'fmkorea': [
                     '.nick', '.nickname', '.username', '.user_name',
