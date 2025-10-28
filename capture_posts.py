@@ -338,12 +338,12 @@ class CommunityScreenshotCapture:
         try:
             # 전체 페이지 높이 확인
             total_height = await page.evaluate('document.body.scrollHeight')
-            viewport_height = 915  # 갤럭시 S25 높이
-            overlap = 100  # 오버랩 픽셀 (자연스러운 연결)
+            viewport_height = 850
+            overlap = 0.5
             
             # 캡처할 구간 수 계산 (오버랩 고려, 제한 없이 전체 페이지)
             effective_height = viewport_height - overlap
-            segments = max(1, (total_height + effective_height - 1) // effective_height)
+            segments = max(1, int((total_height + effective_height - 1) // effective_height))
             
             print(f"  📏 전체 높이: {total_height}px, {segments}개 구간으로 분할 (오버랩: {overlap}px)")
             

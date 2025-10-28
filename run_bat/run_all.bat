@@ -1,5 +1,11 @@
 @echo off
 chcp 65001 >nul 2>&1
+REM --- (추가할 코드 시작) ---
+if not "%~1"=="" (
+    set choice=%~1
+    goto validate_choice
+)
+REM --- (추가할 코드 끝) ---
 echo ===============================================
 echo   Community Aggregator - All in One
 echo ===============================================
@@ -15,6 +21,18 @@ echo 3. Crawler + Capture (sequential)
 echo 4. Start local server
 echo 5. Exit
 echo.
+
+:validate_choice
+REM 인수를 통해 받은 choice 값을 검증합니다.
+if "%choice%"=="1" goto crawler
+if "%choice%"=="2" goto capture
+if "%choice%"=="3" goto both
+if "%choice%"=="4" goto server
+if "%choice%"=="5" goto exit
+if not "%choice%"=="" (
+    echo [ERROR] Invalid selection "%choice%". Exiting.
+    exit /b 1
+)
 
 :menu
 set /p choice=Select number (1-5): 
