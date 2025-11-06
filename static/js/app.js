@@ -188,7 +188,8 @@ class CommunityAggregator {
             'ruliweb': '루리',
             'ppomppu': '뽐뿌',
             'fmkorea': '에펨',
-            'dcinside': '디시'
+            'dcinside': '디시',
+            'dogdrip': '개드립'
         };
         
         card.innerHTML = `

@@ -227,6 +227,11 @@ body {
     color: white;
 }
 
+.site-badge.dogdrip {
+    background: #caabd6;
+    color: white;
+}
+
 .category-badge {
     padding: 4px 10px;
     border-radius: 15px;
@@ -294,6 +299,11 @@ body {
 
 .site-prefix.dcinside {
     background: #96ceb4;
+    color: white;
+}
+
+.site-prefix.dogdrip {
+    background: #9b59b6;
     color: white;
 }
 
