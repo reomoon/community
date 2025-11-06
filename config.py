@@ -44,5 +44,11 @@ class Config:
             'name': '에펨코리아',
             'url': 'https://www.fmkorea.com',
             'enabled': True
+        },
+        'dogdrip': {
+            'name': '개드립',
+            'url': 'https://www.dogdrip.net',
+            'enabled': True
         }
+        
     }

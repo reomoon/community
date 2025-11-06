@@ -12,6 +12,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.crawlers.site_crawlers import (
+    DogdripCrawler,
     PpomppuCrawler, 
     BobaeCrawler, 
     RuliwebCrawler,
@@ -41,6 +42,7 @@ def crawl_all_sites():
         'dcinside': DcinsideCrawler(),
         'ppomppu': PpomppuCrawler(),
         # 'fmkorea': FmkoreaCrawler()
+        'dogdrip': DogdripCrawler()
     }
     
     all_posts = []

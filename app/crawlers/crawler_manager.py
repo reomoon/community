@@ -1,4 +1,4 @@
-from .site_crawlers import PpomppuCrawler, FmkoreaCrawler, BobaeCrawler, DcinsideCrawler, RuliwebCrawler
+from .site_crawlers import PpomppuCrawler, FmkoreaCrawler, BobaeCrawler, DcinsideCrawler, RuliwebCrawler, DogdripCrawler
 from app.models import Post, db
 from datetime import datetime
 from typing import List, Dict
@@ -9,10 +9,11 @@ class CrawlerManager:
     def __init__(self):
         self.crawlers = {
             'ppomppu': PpomppuCrawler(),
-            # 'fmkorea': FmkoreaCrawler(),  # 일시적으로 비활성화
+            'fmkorea': FmkoreaCrawler(),
             'bobae': BobaeCrawler(),
             'ruliweb': RuliwebCrawler(),
-            'dcinside': DcinsideCrawler()
+            'dcinside': DcinsideCrawler(),
+            'dogdrip': DogdripCrawler()
         }
     
     def crawl_all_sites(self) -> int:

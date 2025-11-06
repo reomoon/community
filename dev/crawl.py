@@ -7,7 +7,8 @@ import os
 import sys
 
 # 프로젝트 루트 디렉토리를 Python 경로에 추가
-project_root = os.path.dirname(os.path.abspath(__file__))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)  # dev 폴더의 상위 폴더
 sys.path.insert(0, project_root)
 
 from app import create_app

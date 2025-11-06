@@ -55,9 +55,9 @@ def get_posts():
     # 모든 게시물 가져와서 Python으로 정렬
     all_posts = query.order_by(Post.crawled_at.desc()).all()
     
-    # 사이트 우선순위: 보배 -> 루리웹 -> 디시 -> 뽐뿌 -> 에펨 순
+    # 사이트 우선순위: 보배 -> 루리웹 -> 개드립 -> 뽐뿌 -> 디시 -> 에펨 순
     # 각 사이트 내에서는 조회수 순으로 정렬
-    site_priority = {'bobae': 0, 'ruliweb': 1, 'dcinside': 2, 'ppomppu': 3, 'fmkorea': 4}
+    site_priority = {'bobae': 0, 'ruliweb': 1, 'dogdrip': 2, 'ppomppu': 3, 'dcinside': 4, 'fmkorea': 5}
     
     posts = sorted(all_posts, key=lambda x: (site_priority.get(x.site, 99), -(x.views or 0)))[:limit]
     
@@ -112,9 +112,9 @@ def generate_static():
         # 최신 게시물 가져오기 (사이트 우선순위 적용)
         all_posts = Post.query.order_by(Post.crawled_at.desc()).all()
         
-        # Python으로 사이트 우선순위 정렬: 보배 -> 디시 -> 뽐뿌 -> 에펨 순
+        # Python으로 사이트 우선순위 정렬: 보배 -> 루리웹 -> 개드립 -> 뽐뿌 -> 디시 -> 에펨 순
         # 각 사이트 내에서는 조회수 순으로 정렬
-        site_priority = {'bobae': 0, 'dcinside': 1, 'ppomppu': 2, 'fmkorea': 3}
+        site_priority = {'bobae': 0, 'ruliweb': 1, 'dogdrip': 2, 'ppomppu': 3, 'dcinside': 4, 'fmkorea': 5}
         posts = sorted(all_posts, key=lambda x: (site_priority.get(x.site, 99), -(x.views or 0)))[:50]
         
         # 사이트별 통계
@@ -156,8 +156,10 @@ def generate_static_html(posts, site_stats, total_visitors=0, today_visitors=0):
     site_names = {
         'bobae': '보배',
         'dcinside': '디시',
-        'ppomppu': '뽐뿌', 
-        'fmkorea': '에펨'
+        'ppomppu': '뽐뿌',
+        'fmkorea': '에펨',
+        'ruliweb': '루리',
+        'dogdrip': '개드립'
     }
     
     posts_html = ""

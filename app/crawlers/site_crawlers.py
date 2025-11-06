@@ -138,16 +138,26 @@ class FmkoreaCrawler(BaseCrawler):
         super().__init__('fmkorea')
         self.base_url = 'https://www.fmkorea.com'
         
-        # 에펨코리아용 다양한 헤더 설정 (430 오류 방지)
+        # 에펨코리아용 강화된 헤더 설정 (봇 감지 우회)
         self.session.headers.clear()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'ko-KR,ko;q=0.8,en-US;q=0.5,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+            'DNT': '1'
         })
+        
+        # 쿠키 추가
+        self.session.cookies.set('_ga', 'GA1.2.1234567890.1234567890', domain='.fmkorea.com')
+        self.session.cookies.set('_gid', 'GA1.2.9876543210.1234567890', domain='.fmkorea.com')
         
         # 요청 간격을 더 늘리고 타임아웃 설정
         import time
@@ -155,14 +165,8 @@ class FmkoreaCrawler(BaseCrawler):
         self.request_delay = 3  # 3초 간격
     
     def crawl_popular_posts(self) -> List[Dict]:
-        """fmkorea 인기 게시물 크롤링"""
+        """fmkorea 인기 게시물 크롤링 (강화된 봇 우회)"""
         posts = []
-        
-        # GitHub Actions 환경에서는 에펨코리아 크롤링 스킵 (IP 차단 문제)
-        import os
-        if os.getenv('GITHUB_ACTIONS') == 'true':
-            print("에펨코리아: GitHub Actions 환경에서는 IP 차단으로 인해 스킵합니다.")
-            return posts
         
         # 여러 URL 시도 (GitHub Actions 환경 고려)
         urls_to_try = [
@@ -907,4 +911,206 @@ class RuliwebCrawler(BaseCrawler):
         except Exception as e:
             print(f"루리웹 크롤링 오류: {e}")
         
+        return posts
+    
+class DogdripCrawler(BaseCrawler):
+    """개드립 인기 게시물 크롤러"""
+
+    def __init__(self):
+        super().__init__('dogdrip')
+        self.base_url = 'https://www.dogdrip.net'
+
+    def crawl_popular_posts(self) -> List[Dict]:
+        """개드립 인기 게시물 크롤링 (강화된 User-Agent 및 헤더)"""
+        posts = []
+        try:
+            # 실제 브라우저처럼 완전히 위장된 헤더
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Accept-Encoding': 'gzip, deflate, br, zstd',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"Windows"',
+                'Cache-Control': 'max-age=0',
+                'DNT': '1'
+            }
+            
+            # 먼저 메인 페이지 방문으로 세션 쿠키 얻기
+            print("개드립 메인 페이지 방문 중...")
+            self.session.get(self.base_url, headers=headers, timeout=10)
+            time.sleep(1)  # 잠시 대기
+            
+            # 인기글 페이지 접속
+            url = f"{self.base_url}/?mid=dogdrip&sort_index=popular"
+            headers['Referer'] = self.base_url + '/'
+            print(f"개드립 인기글 페이지 접속 중: {url}")
+            response = self.session.get(url, headers=headers, timeout=15, allow_redirects=True)
+            response.raise_for_status()
+            
+            print(f"개드립 응답 상태: {response.status_code}, 길이: {len(response.content)}")
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            post_list = []
+            seen_titles = set()
+            
+            # 여러 셀렉터 시도
+            rows = soup.select('article.fdb_lst_itm')  # article 기반
+            if not rows:
+                rows = soup.select('div.ed.ed_lst_doc')  # div 기반
+            if not rows:
+                rows = soup.select('tr[class^="ed"]')  # tr 기반
+            if not rows:
+                # a 태그로 직접 게시물 찾기
+                links = soup.find_all('a', href=True)
+                rows = [link for link in links if 'document_srl=' in link.get('href', '') or '/dogdrip/' in link.get('href', '')]
+            
+            print(f"개드립 게시물 요소 발견: {len(rows)}개")
+
+            for row in rows[:30]:
+                try:
+                    # article이나 div인 경우
+                    if row.name in ['article', 'div']:
+                        title_link = row.find('a', class_='ed_link_doc') or row.find('a', href=lambda x: x and 'document_srl=' in x)
+                        if not title_link:
+                            continue
+                        
+                        title = title_link.get_text(strip=True)
+                        if not title or len(title) < 5 or title in seen_titles:
+                            continue
+                        seen_titles.add(title)
+                        
+                        href = title_link.get('href', '')
+                        if href.startswith('/'):
+                            post_url = self.base_url + href
+                        elif href.startswith('http'):
+                            post_url = href
+                        else:
+                            post_url = f"{self.base_url}/{href}"
+                        
+                        # 작성자, 조회수, 추천수 등 파싱
+                        author = '개드립'
+                        author_elem = row.find(class_='ed_lst_nik') or row.find('span', class_='member')
+                        if author_elem:
+                            author = author_elem.get_text(strip=True)
+                        
+                        views = 0
+                        views_elem = row.find(class_='ed_lst_view') or row.find(text=re.compile(r'조회'))
+                        if views_elem:
+                            views_text = views_elem if isinstance(views_elem, str) else views_elem.get_text(strip=True)
+                            views_match = re.search(r'(\d+)', views_text.replace(',', ''))
+                            if views_match:
+                                views = int(views_match.group(1))
+                        
+                        likes = 0
+                        likes_elem = row.find(class_='ed_lst_vote') or row.find(text=re.compile(r'추천'))
+                        if likes_elem:
+                            likes_text = likes_elem if isinstance(likes_elem, str) else likes_elem.get_text(strip=True)
+                            likes_match = re.search(r'(\d+)', likes_text.replace(',', ''))
+                            if likes_match:
+                                likes = int(likes_match.group(1))
+                        
+                        comments = 0
+                        comment_elem = row.find(class_='ed_lst_rp')
+                        if comment_elem:
+                            comment_text = comment_elem.get_text(strip=True)
+                            comment_match = re.search(r'(\d+)', comment_text.replace(',', ''))
+                            if comment_match:
+                                comments = int(comment_match.group(1))
+                        
+                        # 제목에서 댓글수 추출
+                        if comments == 0:
+                            comment_match = re.search(r'\[(\d+)\]', title)
+                            if comment_match:
+                                comments = int(comment_match.group(1))
+                                title = re.sub(r'\[(\d+)\]', '', title).strip()
+                    
+                    # tr이나 a 태그인 경우 (기존 로직)
+                    else:
+                        if row.name == 'a':
+                            title_link = row
+                        else:
+                            title_cell = row.find('td', class_='title')
+                            if not title_cell:
+                                continue
+                            title_link = title_cell.find('a')
+                        
+                        if not title_link:
+                            continue
+                        
+                        title = title_link.get_text(strip=True)
+                        if not title or len(title) < 5 or title in seen_titles:
+                            continue
+                        seen_titles.add(title)
+                        
+                        href = title_link.get('href', '')
+                        if href.startswith('/'):
+                            post_url = self.base_url + href
+                        elif href.startswith('http'):
+                            post_url = href
+                        else:
+                            post_url = f"{self.base_url}/{href}"
+
+                        author = '개드립'
+                        if row.name != 'a':
+                            author_cell = row.find('td', class_='author')
+                            if author_cell:
+                                author = author_cell.get_text(strip=True)
+                        
+                        views = 0
+                        if row.name != 'a':
+                            views_cell = row.find('td', class_='ed')
+                            if views_cell:
+                                try:
+                                    views = int(views_cell.get_text(strip=True).replace(',', ''))
+                                except:
+                                    views = 0
+                        
+                        likes = 0
+                        if row.name != 'a':
+                            likes_cell = row.find('td', class_='vote')
+                            if likes_cell:
+                                try:
+                                    likes = int(likes_cell.get_text(strip=True).replace(',', ''))
+                                except:
+                                    likes = 0
+                        
+                        comments = 0
+                        comment_match = re.search(r'\[(\d+)\]', title)
+                        if comment_match:
+                            comments = int(comment_match.group(1))
+                            title = re.sub(r'\[(\d+)\]', '', title).strip()
+
+                    popularity_score = views + (likes * 2) + (comments * 3)
+                    post_data = {
+                        'title': title,
+                        'url': post_url,
+                        'author': author,
+                        'site': self.site_name,
+                        'category': '인기',
+                        'views': views,
+                        'likes': likes,
+                        'comments': comments,
+                        'popularity_score': popularity_score
+                    }
+                    post_list.append(post_data)
+                    
+                except Exception as e:
+                    print(f"개드립 게시물 파싱 오류: {e}")
+                    continue
+
+            post_list.sort(key=lambda x: x['popularity_score'], reverse=True)
+            posts = post_list[:10]
+            for post in posts:
+                print(f"개드립 게시물 추가: {post['title'][:50]}... (조회:{post['views']}, 추천:{post['likes']}, 댓글:{post['comments']})")
+        except Exception as e:
+            print(f"개드립 크롤링 오류: {e}")
+
         return posts
