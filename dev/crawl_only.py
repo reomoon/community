@@ -41,7 +41,7 @@ def crawl_all_sites():
         'ruliweb': RuliwebCrawler(),
         'dcinside': DcinsideCrawler(),
         'ppomppu': PpomppuCrawler(),
-        'fmkorea': FmkoreaCrawler(),
+        # 'fmkorea': FmkoreaCrawler(),  # HTTP 430 에러로 GitHub Actions에서 실패
         'dogdrip': DogdripCrawler()
     }
     
