@@ -41,7 +41,7 @@ def crawl_all_sites():
         'ruliweb': RuliwebCrawler(),
         'dcinside': DcinsideCrawler(),
         'ppomppu': PpomppuCrawler(),
-        # 'fmkorea': FmkoreaCrawler()
+        'fmkorea': FmkoreaCrawler(),
         'dogdrip': DogdripCrawler()
     }
     

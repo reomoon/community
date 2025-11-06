@@ -963,16 +963,23 @@ class DogdripCrawler(BaseCrawler):
             
             # 여러 셀렉터 시도
             rows = soup.select('article.fdb_lst_itm')  # article 기반
+            print(f"개드립 article.fdb_lst_itm: {len(rows)}개")
+            
             if not rows:
                 rows = soup.select('div.ed.ed_lst_doc')  # div 기반
+                print(f"개드립 div.ed.ed_lst_doc: {len(rows)}개")
+            
             if not rows:
                 rows = soup.select('tr[class^="ed"]')  # tr 기반
-            if not rows:
-                # a 태그로 직접 게시물 찾기
-                links = soup.find_all('a', href=True)
-                rows = [link for link in links if 'document_srl=' in link.get('href', '') or '/dogdrip/' in link.get('href', '')]
+                print(f"개드립 tr[class^='ed']: {len(rows)}개")
             
-            print(f"개드립 게시물 요소 발견: {len(rows)}개")
+            if not rows:
+                # a 태그로 직접 게시물 찾기 - dogdrip 게시물만
+                links = soup.find_all('a', href=True)
+                rows = [link for link in links if ('document_srl=' in link.get('href', '') or '/dogdrip/' in link.get('href', '')) and len(link.get_text(strip=True)) > 10]
+                print(f"개드립 링크 기반: {len(rows)}개")
+            
+            print(f"개드립 최종 게시물 요소: {len(rows)}개")
 
             for row in rows[:30]:
                 try:
